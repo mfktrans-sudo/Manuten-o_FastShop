@@ -1044,10 +1044,10 @@ function w0e({data:e}){let{machines:t,operators:n,shifts:l,sectors:r,swaps:a,dow
   .model-card { display:flex; flex-direction:column; align-items:center; gap:8px; background: var(--panel-alt); border:1px solid var(--border); border-radius:12px; padding:16px 12px; cursor:pointer; color: var(--text); transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; animation: bmFadeInUp .3s ease both; }
   .model-card:hover { transform: translateY(-4px) scale(1.03); border-color: var(--accent); box-shadow: 0 8px 22px rgba(255,138,61,.18); }
   .model-card:active { transform: translateY(-1px) scale(.99); }
-  .model-card-img { width:100%; height:88px; object-fit:cover; border-radius:8px; background: var(--panel); }
+  .model-card-img { width:100%; height:auto; max-height:150px; object-fit:contain; border-radius:8px; background: var(--panel); }
   .foto-up { display:flex; flex-direction:column; gap:6px; }
   .foto-up-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-  .foto-up-preview { width:104px; height:78px; border-radius:8px; border:1px solid var(--border); background: var(--panel); object-fit:cover; flex-shrink:0; }
+  .foto-up-preview { width:120px; height:auto; max-height:120px; border-radius:8px; border:1px solid var(--border); background: var(--panel); object-fit:contain; flex-shrink:0; }
   .foto-up-empty { width:104px; height:78px; border-radius:8px; border:1px dashed var(--border); background: var(--panel); display:flex; align-items:center; justify-content:center; color: var(--text-dim); font-size:11px; text-align:center; padding:4px; box-sizing:border-box; flex-shrink:0; }
   .foto-up-actions { display:flex; gap:8px; flex-wrap:wrap; }
   .foto-up-err { color: var(--bad); font-size:11.5px; }
