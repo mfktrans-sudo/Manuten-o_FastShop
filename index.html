@@ -354,13 +354,22 @@ function withTimeout(promise,ms){
   });
 }
 function salvarFotoLocal(id,dataUrl){
-  if(__FOTOS[id])return"img:"+id;
+  /* Guarda a foto em memória imediatamente — isso garante que ela apareça na tela
+     mesmo que a gravação persistente (localStorage) abaixo venha a falhar. */
   __FOTOS[id]=dataUrl;
   function gravar(){try{window.localStorage.setItem(FOTOS_KEY,JSON.stringify(__FOTOS));return!0}catch(e){return!1}}
   if(gravar())return"img:"+id;
-  let uso=fotosEmUso();Object.keys(__FOTOS).forEach(k=>{if(k!==id&&!uso.has(k))delete __FOTOS[k]});
+  /* Tenta liberar espaço removendo fotos que não estão mais vinculadas a nenhuma máquina */
+  try{
+    let uso=fotosEmUso();
+    Object.keys(__FOTOS).forEach(function(k){if(k!==id&&!uso.has(k))delete __FOTOS[k]});
+  }catch(e){}
   if(gravar())return"img:"+id;
-  delete __FOTOS[id];return null
+  /* Mesmo sem conseguir gravar de forma persistente (ex.: armazenamento do navegador
+     cheio, em modo privado ou bloqueado por política), a foto permanece disponível
+     em memória nesta sessão/aba — não retornamos erro ao usuário por causa disso. */
+  console.warn("Não foi possível gravar a foto no armazenamento persistente do navegador (localStorage cheio ou bloqueado). A foto ficará visível normalmente nesta sessão, mas pode não persistir após recarregar a página.");
+  return"img:"+id;
 }
 async function salvarFoto(dataUrl){
   let id=fotoHash(dataUrl);
