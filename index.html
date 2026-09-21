@@ -353,16 +353,7 @@ function withTimeout(promise,ms){
     Promise.resolve(promise).then(function(v){if(!done){done=!0;clearTimeout(timer);resolve(v)}},function(e){if(!done){done=!0;clearTimeout(timer);reject(e)}});
   });
 }
-async function salvarFoto(dataUrl){
-  let id=fotoHash(dataUrl);
-  if(window.__cbStorage){
-    try{
-      let ref=window.__cbStorage.ref().child("fotos_maquinas/"+id+".jpg");
-      await withTimeout(ref.put(dataUrlParaBlob(dataUrl)),12000);
-      let url=await withTimeout(ref.getDownloadURL(),12000);
-      if(url)return url;
-    }catch(err){console.error("upload de foto para o Firebase Storage falhou ou demorou demais, usando fallback local (imagem salva dentro do sistema)",err)}
-  }
+function salvarFotoLocal(id,dataUrl){
   if(__FOTOS[id])return"img:"+id;
   __FOTOS[id]=dataUrl;
   function gravar(){try{window.localStorage.setItem(FOTOS_KEY,JSON.stringify(__FOTOS));return!0}catch(e){return!1}}
@@ -370,6 +361,24 @@ async function salvarFoto(dataUrl){
   let uso=fotosEmUso();Object.keys(__FOTOS).forEach(k=>{if(k!==id&&!uso.has(k))delete __FOTOS[k]});
   if(gravar())return"img:"+id;
   delete __FOTOS[id];return null
+}
+async function salvarFoto(dataUrl){
+  let id=fotoHash(dataUrl);
+  /* Salva dentro do sistema (localStorage) IMEDIATAMENTE — a foto sempre aparece na hora,
+     independente do Firebase Storage estar disponível, configurado ou lento. */
+  let refLocal=salvarFotoLocal(id,dataUrl);
+  /* Tenta também sincronizar com o Firebase Storage em segundo plano, sem travar a tela
+     nem depender do resultado para exibir a foto ao usuário. */
+  if(window.__cbStorage){
+    (async function(){
+      try{
+        let ref=window.__cbStorage.ref().child("fotos_maquinas/"+id+".jpg");
+        await withTimeout(ref.put(dataUrlParaBlob(dataUrl)),15000);
+        await withTimeout(ref.getDownloadURL(),15000);
+      }catch(err){console.error("Sincronização em segundo plano da foto com o Firebase Storage falhou (a foto já está salva e funcionando normalmente dentro do sistema)",err)}
+    })();
+  }
+  return refLocal;
 }
 function comprimirImagem(file,maxDim,qualidade){
   return new Promise(function(resolve,reject){
