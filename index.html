@@ -346,14 +346,22 @@ function dataUrlParaBlob(dataUrl){
   for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
   return new Blob([arr],{type:mime})
 }
+function withTimeout(promise,ms){
+  return new Promise(function(resolve,reject){
+    let done=!1;
+    let timer=setTimeout(function(){if(!done){done=!0;reject(new Error("Tempo de envio ao servidor esgotado ("+ms+"ms)."))}},ms);
+    Promise.resolve(promise).then(function(v){if(!done){done=!0;clearTimeout(timer);resolve(v)}},function(e){if(!done){done=!0;clearTimeout(timer);reject(e)}});
+  });
+}
 async function salvarFoto(dataUrl){
   let id=fotoHash(dataUrl);
   if(window.__cbStorage){
     try{
       let ref=window.__cbStorage.ref().child("fotos_maquinas/"+id+".jpg");
-      await ref.put(dataUrlParaBlob(dataUrl));
-      return await ref.getDownloadURL();
-    }catch(err){console.error("upload de foto para o Firebase Storage falhou, usando fallback local",err)}
+      await withTimeout(ref.put(dataUrlParaBlob(dataUrl)),12000);
+      let url=await withTimeout(ref.getDownloadURL(),12000);
+      if(url)return url;
+    }catch(err){console.error("upload de foto para o Firebase Storage falhou ou demorou demais, usando fallback local (imagem salva dentro do sistema)",err)}
   }
   if(__FOTOS[id])return"img:"+id;
   __FOTOS[id]=dataUrl;
