@@ -1438,7 +1438,7 @@ function w0e({data:e}){let{machines:t,operators:n,shifts:l,sectors:r,swaps:a,dow
   .alert-ticker svg { flex-shrink:0; }
   .alert-ticker { max-width:none; min-width:0; flex:0 1 auto; }
   .alert-ticker span { white-space:normal; overflow-wrap:anywhere; }
-  .app-header { padding-right:340px; }
+  .app-header { padding-right:calc(var(--session-bar-w, 340px) + 24px); }
   @media (max-width: 900px) { .app-header { padding-right:20px; padding-top:56px; } }
   .alert-count { background:#1a0d0d; color:#fff; border-radius:20px; padding:1px 7px; font-size:11px; }
   .autosave-indicator { display:flex; align-items:center; gap:6px; font-size:11.5px; color: var(--ok); background: var(--panel); border:1px solid var(--border); padding:5px 10px; border-radius:999px; white-space:nowrap; }
@@ -1790,6 +1790,23 @@ lucide-react/dist/esm/lucide-react.js:
    *)
 */
 
+</script>
+<script>
+/* Reserva no cabecalho o espaco exato da barra de sessao (e-mail + Sair), para ela nunca cobrir os alertas */
+(function(){
+  function ajustar(){
+    var b=document.getElementById("session-bar");if(!b)return;
+    var w=b.classList.contains("show")?Math.ceil(b.getBoundingClientRect().width)+20:0;
+    document.documentElement.style.setProperty("--session-bar-w",w+"px")
+  }
+  function iniciar(){
+    var b=document.getElementById("session-bar");if(!b)return;
+    if(window.ResizeObserver)new ResizeObserver(ajustar).observe(b);
+    new MutationObserver(ajustar).observe(b,{attributes:true,childList:true,subtree:true,characterData:true});
+    window.addEventListener("resize",ajustar);ajustar()
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",iniciar);else iniciar()
+})();
 </script>
 </body>
 </html>
