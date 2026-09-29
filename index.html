@@ -737,7 +737,7 @@ function BulkAddBateriasModal({data:bd,onSave:bOnSave,onClose:bOnClose}){
       bt_h("textarea",{rows:5,value:bNumeros,onChange:function(e){setBNumeros(e.target.value)},placeholder:"1-20  (ou 1, 2, 3...)"})),
     nums.length>0&&bt_h("div",{className:"bat-preview"},
       bt_h("span",{className:"hint",style:{margin:"0 6px 0 0"}},nums.length+(nums.length===1?" bateria será cadastrada:":" baterias serão cadastradas:")),
-      nums.slice(0,12).map(function(n,i){return bt_h("span",{key:i,className:"tag-mini"},base+" "+n)}),
+      nums.slice(0,12).map(function(n,i){return bt_h("span",{key:i,className:"tag-mini"},n)}),
       nums.length>12&&bt_h("span",{className:"tag-mini"},"+"+(nums.length-12))),
     bt_h("div",{className:"modal-actions"},
       bt_h("button",{className:"btn btn-ghost",onClick:bOnClose},"Cancelar"),
@@ -934,14 +934,12 @@ function BateriasTab({data:r,onChangeBatteries:onCh,onChangeMachines:onChM,logAu
         {key:"observacoes",label:"Observações",type:"textarea"}],
       columns:[
         {key:"foto_url",label:"Foto",render:function(b){let src=resolveFoto(b.foto_url);return bt_h("div",{className:"bat-thumb"},src?bt_h("img",{src:src,alt:b.numero}):bt_h(ni,{size:18}))}},
-        {key:"numero",label:"Número"},
-        {key:"fabricante",label:"Fabricante"},
+        {key:"numero",label:"Número",render:function(b){return btNumeracaoDe(b)}},
         {key:"modelo",label:"Modelo"},
         {key:"voltagem",label:"Voltagem"},
         {key:"modelos_compativeis",label:"Compatível com",render:function(b){let l=Array.isArray(b.modelos_compativeis)?b.modelos_compativeis:[];if(!l.length)return bt_h("span",{className:"muted"},"Qualquer máquina");return bt_h("span",null,l.slice(0,2).map(function(k){return bt_h("span",{key:k,className:"tag-mini"},k)}),l.length>2&&bt_h("span",{className:"tag-mini",title:l.slice(2).join(", ")},"+"+(l.length-2)))}},
         {key:"vinculo",label:"Vinculada a",render:function(b){let ms=vinculos.get(b.id),q=parseInt(b.vinculo_qtd)||1;if(!ms&&!b.vinculo_modelo)return"—";return bt_h("span",{style:{color:fe.ok,fontWeight:600}},ms?ms.map(function(m){return m.code}).join(", "):null,ms&&b.vinculo_modelo?" · ":null,b.vinculo_modelo?b.vinculo_modelo+" ("+q+(q===1?" máq.":" máqs.")+")":null)}},
-        {key:"status",label:"Status",render:function(N){return bt_h(Va,{color:NE(N.status)},N.status)}},
-        {key:"localizacao",label:"Localização"}],
+        {key:"status",label:"Status",render:function(N){return bt_h(Va,{color:NE(N.status)},N.status)}}],
       validate:function(N){
         let mod=String(N.modelo||"").trim(),nu=String(N.numeracao||"").trim();
         if(!mod)return"Informe o modelo da bateria.";
