@@ -737,7 +737,7 @@ function BulkAddBateriasModal({data:bd,onSave:bOnSave,onClose:bOnClose}){
       bt_h("textarea",{rows:5,value:bNumeros,onChange:function(e){setBNumeros(e.target.value)},placeholder:"1-20  (ou 1, 2, 3...)"})),
     nums.length>0&&bt_h("div",{className:"bat-preview"},
       bt_h("span",{className:"hint",style:{margin:"0 6px 0 0"}},nums.length+(nums.length===1?" bateria será cadastrada:":" baterias serão cadastradas:")),
-      nums.slice(0,12).map(function(n,i){return bt_h("span",{key:i,className:"tag-mini"},n)}),
+      nums.slice(0,12).map(function(n,i){return bt_h("span",{key:i,className:"tag-mini"},base+" "+n)}),
       nums.length>12&&bt_h("span",{className:"tag-mini"},"+"+(nums.length-12))),
     bt_h("div",{className:"modal-actions"},
       bt_h("button",{className:"btn btn-ghost",onClick:bOnClose},"Cancelar"),
@@ -934,12 +934,14 @@ function BateriasTab({data:r,onChangeBatteries:onCh,onChangeMachines:onChM,logAu
         {key:"observacoes",label:"Observações",type:"textarea"}],
       columns:[
         {key:"foto_url",label:"Foto",render:function(b){let src=resolveFoto(b.foto_url);return bt_h("div",{className:"bat-thumb"},src?bt_h("img",{src:src,alt:b.numero}):bt_h(ni,{size:18}))}},
-        {key:"numero",label:"Número",render:function(b){return btNumeracaoDe(b)}},
+        {key:"numero",label:"Número"},
+        {key:"fabricante",label:"Fabricante"},
         {key:"modelo",label:"Modelo"},
         {key:"voltagem",label:"Voltagem"},
         {key:"modelos_compativeis",label:"Compatível com",render:function(b){let l=Array.isArray(b.modelos_compativeis)?b.modelos_compativeis:[];if(!l.length)return bt_h("span",{className:"muted"},"Qualquer máquina");return bt_h("span",null,l.slice(0,2).map(function(k){return bt_h("span",{key:k,className:"tag-mini"},k)}),l.length>2&&bt_h("span",{className:"tag-mini",title:l.slice(2).join(", ")},"+"+(l.length-2)))}},
         {key:"vinculo",label:"Vinculada a",render:function(b){let ms=vinculos.get(b.id),q=parseInt(b.vinculo_qtd)||1;if(!ms&&!b.vinculo_modelo)return"—";return bt_h("span",{style:{color:fe.ok,fontWeight:600}},ms?ms.map(function(m){return m.code}).join(", "):null,ms&&b.vinculo_modelo?" · ":null,b.vinculo_modelo?b.vinculo_modelo+" ("+q+(q===1?" máq.":" máqs.")+")":null)}},
-        {key:"status",label:"Status",render:function(N){return bt_h(Va,{color:NE(N.status)},N.status)}}],
+        {key:"status",label:"Status",render:function(N){return bt_h(Va,{color:NE(N.status)},N.status)}},
+        {key:"localizacao",label:"Localização"}],
       validate:function(N){
         let mod=String(N.modelo||"").trim(),nu=String(N.numeracao||"").trim();
         if(!mod)return"Informe o modelo da bateria.";
@@ -1339,7 +1341,30 @@ function OrdemManutencaoModal({record:e,data:t,onPatch:n,onClose:l,onFinalize:r,
   let[showHist,setShowHist]=(0,g.useState)(false);
   let[showOrc,setShowOrc]=(0,g.useState)(false);
   let[err,setErr]=(0,g.useState)("");
+  let[evTipo,setEvTipo]=(0,g.useState)("Andamento");
+  let[evTxt,setEvTxt]=(0,g.useState)("");
   let m=t.machines.find(x=>x.id===e.machine_id);
+  function addEvento(){
+    if(!a||!evTxt.trim())return;
+    n(e.id,{},"Andamento — "+evTipo,"—",evTxt.trim());
+    setEvTxt("");setSavingAt(new Date());
+  }
+  let tlIni=e.created_at||e.inicio;
+  let tlEv=[{ts:tlIni,titulo:"Manutenção aberta",detalhe:[e.tipo_manutencao,e.motivo,e.problema].filter(Boolean).join(" · "),cor:fe.info,ord:0}];
+  (function(){
+    let ult=null;
+    (e.history||[]).forEach((hh,ix)=>{
+      let c=String(hh.campo||"");
+      if(c.indexOf("Andamento")===0){tlEv.push({ts:hh.ts,titulo:c,detalhe:String(hh.novo??""),cor:fe.accent,ord:1});ult=null;return;}
+      if(c==="Status"||c==="Status do orçamento"){tlEv.push({ts:hh.ts,titulo:c==="Status"?"Status alterado":"Orçamento: status alterado",detalhe:String(hh.anterior??"—")+" → "+String(hh.novo??"—"),cor:fe.warn,ord:1});ult=null;return;}
+      if(ult&&ult.campo===c&&Math.abs(new Date(hh.ts)-new Date(ult.ts))<120000){ult.ev.ts=hh.ts;ult.ts=hh.ts;ult.ev.detalhe=ult.ant+" → "+String(hh.novo===""||hh.novo==null?"—":hh.novo);return;}
+      let ant=String(hh.anterior===""||hh.anterior==null?"—":hh.anterior);
+      let ev={ts:hh.ts,titulo:"Campo alterado: "+c,detalhe:ant+" → "+String(hh.novo===""||hh.novo==null?"—":hh.novo),cor:fe.textDim,ord:1};
+      tlEv.push(ev);ult={campo:c,ts:hh.ts,ev:ev,ant:ant};
+    });
+  })();
+  if(e.fim)tlEv.push({ts:e.fim,titulo:"Manutenção finalizada",detalhe:"Tempo total: "+(e.tempo_min!=null?vl(e.tempo_min):"—"),cor:fe.ok,ord:2});
+  tlEv.sort((x,y)=>{let d=new Date(x.ts)-new Date(y.ts);return(isNaN(d)||d===0)?x.ord-y.ord:d;});
   function change(key,value){
     if(!a)return;
     let anterior=e[key];
@@ -1371,6 +1396,25 @@ function OrdemManutencaoModal({record:e,data:t,onPatch:n,onClose:l,onFinalize:r,
       g.default.createElement(Zt,{label:"Responsável pela execução"},g.default.createElement("input",{value:pick("responsavel_execucao"),disabled:!a,onChange:ev=>change("responsavel_execucao",ev.target.value)}))
     ),
     g.default.createElement("p",{className:"hint"},savingAt?("✓ Salvo automaticamente às "+savingAt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})):"As alterações são salvas automaticamente."),
+    g.default.createElement("div",{style:{marginTop:14}},
+      g.default.createElement("h4",{className:"modal-subtitle"},"Linha do tempo do processo"),
+      a&&g.default.createElement("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",margin:"8px 0"}},
+        g.default.createElement("select",{value:evTipo,onChange:ev=>setEvTipo(ev.target.value)},["Andamento","Serviço iniciado","Aguardando peça","Aguardando orçamento","Contato com fornecedor","Observação"].map(x=>g.default.createElement("option",{key:x,value:x},x))),
+        g.default.createElement("input",{style:{flex:1,minWidth:200},placeholder:"Descreva o que aconteceu neste andamento...",value:evTxt,onChange:ev=>setEvTxt(ev.target.value),onKeyDown:ev=>{if(ev.key==="Enter")addEvento();}}),
+        g.default.createElement("button",{className:"btn btn-ghost",disabled:!evTxt.trim(),onClick:addEvento},"Adicionar à linha do tempo")
+      ),
+      g.default.createElement("div",{style:{maxHeight:260,overflowY:"auto",borderLeft:"2px solid "+fe.border,marginLeft:6,paddingLeft:14}},
+        tlEv.map((ev2,ix)=>{
+          let dm=Math.round((new Date(ev2.ts)-new Date(tlIni))/60000);
+          return g.default.createElement("div",{key:ix,style:{position:"relative",padding:"0 0 12px 0"}},
+            g.default.createElement("span",{style:{position:"absolute",left:-21,top:3,width:12,height:12,borderRadius:"50%",background:ev2.cor,border:"2px solid "+fe.panel}}),
+            g.default.createElement("div",{style:{fontWeight:600}},ev2.titulo),
+            g.default.createElement("div",{className:"hint"},b2(ev2.ts)+(ix>0&&!isNaN(dm)?" · +"+vl(Math.max(0,dm))+" desde a abertura":"")),
+            ev2.detalhe&&g.default.createElement("div",{style:{marginTop:2,wordBreak:"break-word"}},ev2.detalhe)
+          );
+        })
+      )
+    ),
     (e.history&&e.history.length>0)&&g.default.createElement("div",{style:{marginTop:12}},
       g.default.createElement("button",{className:"btn btn-ghost",onClick:()=>setShowHist(!showHist)},g.default.createElement(ri,{size:14})," Histórico de alterações ("+e.history.length+")"),
       showHist&&g.default.createElement("div",{className:"table-wrap",style:{marginTop:8}},
@@ -1447,7 +1491,10 @@ function OrdensManutencaoView({data:e,setData:t,logAudit:n}){
         bateria_retirada:"",bateria_instalada:"",status:"Concluído",observacao:rec.observacoes||"",extra:{"Ordem de manutenção":rec.numero,"Problema":rec.problema,"Serviço realizado":rec.servico,"Peças utilizadas":rec.pecas}
       };
       n&&n("Finalizar manutenção","manutencao",id,rec,novo);
-      return {...d,manutencoes:list,machines:machines,downtime:rec.machine_id?[...d.downtime,dt]:d.downtime};
+      let vinc=rec.downtime_id&&d.downtime.find(x=>x.id===rec.downtime_id);
+      let pd=v=>String(v).padStart(2,"0"),fd2=new Date(fim),fimLocal=fd2.getFullYear()+"-"+pd(fd2.getMonth()+1)+"-"+pd(fd2.getDate())+" "+pd(fd2.getHours())+":"+pd(fd2.getMinutes());
+      let dtList=vinc?d.downtime.map(x=>x.id===rec.downtime_id?{...x,fim:fimLocal,tempo_min:tempo,status:"Concluído"}:x):(rec.machine_id?[...d.downtime,dt]:d.downtime);
+      return {...d,manutencoes:list,machines:machines,downtime:dtList};
     });
     setOpenId(null);
   }
