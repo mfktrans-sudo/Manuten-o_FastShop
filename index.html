@@ -647,6 +647,14 @@ function btNorm(v){return String(v==null?"":v).trim().toLowerCase()}
 function btIcon(d,size){return bt_h("svg",{width:size||14,height:size||14,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round","aria-hidden":"true"},bt_h("path",{d:d}))}
 
 /* Chave do "modelo" de uma máquina — mesma regra usada na tela Registrar troca */
+/* Separa o código da máquina em número + modelo (ex.: "BT OSE 250 3" -> número "3", modelo "BT OSE 250") */
+function btMaqNumModelo(mq){
+  if(!mq)return{num:"\u2014",modelo:"\u2014"};
+  let code=String(mq.code||"").trim(),modelo=modeloKeyMaquina(mq),num="";
+  if(modelo&&code.toLowerCase().indexOf(modelo.toLowerCase())===0)num=code.slice(modelo.length).trim();
+  if(!num){let m=code.match(/(\d+)\s*$/);num=m?m[1]:code}
+  return{num:num||"\u2014",modelo:modelo||"\u2014"}
+}
 function modeloKeyMaquina(mq){return mq.modelo||(mq.code?mq.code.replace(/\s*\d+\s*$/,"").trim():"")||mq.tipo||"Sem modelo"}
 function agruparModelosMaquinas(machines){
   let map=new Map();
@@ -1952,6 +1960,7 @@ function IndicadoresTrocasTab({data:e,setData:sxSetData,logAudit:sxLog}){
   let[fStatus,setFStatus]=(0,g.useState)("");
   let[selT,setSelT]=(0,g.useState)([]);
   function nomeMaq(id){return ms.find(x=>x.id===id)?.code||"\u2014";}
+  function maqNumModelo(id){return btMaqNumModelo(ms.find(x=>x.id===id))}
   function nomeTurno(id){return shs.find(x=>x.id===id)?.nome||"\u2014";}
   function nomeSetor(id){return scs.find(x=>x.id===id)?.nome||"\u2014";}
   function nomeOper(id){return ops.find(x=>x.id===id)?.nome||"\u2014";}
@@ -2035,9 +2044,9 @@ function IndicadoresTrocasTab({data:e,setData:sxSetData,logAudit:sxLog}){
       dica&&h("p",{className:"hint"},dica),
       linhas.length===0?h("p",{className:"muted"},"Sem dados no per\u00edodo."):
       h("div",{className:"table-wrap"},h("table",null,
-        h("thead",null,h("tr",null,h("th",null,"#"),h("th",null,colNome),h("th",null,"Trocas"),h("th",null,"Tempo m\u00e9dio"),h("th",null,"Tempo total"),h("th",null,"\u00daltima troca"))),
+        h("thead",null,h("tr",null,h("th",null,"#"),campo==="maquina"?h(g.default.Fragment,null,h("th",null,"N\u00ba da m\u00e1quina"),h("th",null,"Modelo")):h("th",null,colNome),h("th",null,"Trocas"),h("th",null,"Tempo m\u00e9dio"),h("th",null,"Tempo total"),h("th",null,"\u00daltima troca"))),
         h("tbody",null,linhas.map((r,i)=>h("tr",{key:r.key},
-          h("td",null,i+1,"\u00ba"),h("td",null,r[campo]),h("td",null,r.trocas),
+          h("td",null,i+1,"\u00ba"),campo==="maquina"?h(g.default.Fragment,null,h("td",null,maqNumModelo(r.key).num),h("td",null,maqNumModelo(r.key).modelo)):h("td",null,r[campo]),h("td",null,r.trocas),
           h("td",null,r.tempoMedio?vl(r.tempoMedio):"\u2014"),h("td",null,r.tempoTotal?vl(r.tempoTotal):"\u2014"),
           h("td",null,r.ultima?b2(r.ultima):"\u2014")))))));
   }
@@ -2084,9 +2093,9 @@ function IndicadoresTrocasTab({data:e,setData:sxSetData,logAudit:sxLog}){
       h("h3",{className:"ranking-title"},"\u00daltimas trocas",lista.length>100?" (100 mais recentes \u2014 use Exportar para a lista completa)":""),
       selIds.length>0&&h("div",{style:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",padding:"8px 12px",margin:"0 0 10px",background:"var(--panel-alt)",border:"1px solid var(--border)",borderRadius:8}},h("strong",null,selIds.length+(selIds.length===1?" troca selecionada":" trocas selecionadas")),h("button",{className:"btn btn-danger btn-sm",onClick:()=>excluirTrocas(selIds)},"Excluir selecionadas"),h("button",{className:"btn btn-ghost btn-sm",onClick:()=>setSelT([])},"Limpar sele\u00e7\u00e3o")),
       h("div",{className:"table-wrap"},h("table",null,
-        h("thead",null,h("tr",null,h("th",{style:{width:34}},h("input",{type:"checkbox",title:"Selecionar todas",checked:ultimas.length>0&&selIds.length===ultimas.length,onChange:()=>setSelT(selIds.length===ultimas.length?[]:ultimas.map(s=>s.id)),style:{cursor:"pointer",accentColor:"#ff8a3d"}})),h("th",null,"In\u00edcio"),h("th",null,"Fim"),h("th",null,"M\u00e1quina"),h("th",null,"Bateria retirada"),h("th",null,"Bateria instalada"),h("th",null,"Operador"),h("th",null,"Turno"),h("th",null,"Setor"),h("th",null,"Dura\u00e7\u00e3o"),h("th",null,"Status"),h("th",null,"A\u00e7\u00f5es"))),
+        h("thead",null,h("tr",null,h("th",{style:{width:34}},h("input",{type:"checkbox",title:"Selecionar todas",checked:ultimas.length>0&&selIds.length===ultimas.length,onChange:()=>setSelT(selIds.length===ultimas.length?[]:ultimas.map(s=>s.id)),style:{cursor:"pointer",accentColor:"#ff8a3d"}})),h("th",null,"In\u00edcio"),h("th",null,"Fim"),h("th",null,"N\u00ba da m\u00e1quina"),h("th",null,"Modelo"),h("th",null,"Bateria retirada"),h("th",null,"Bateria instalada"),h("th",null,"Operador"),h("th",null,"Turno"),h("th",null,"Setor"),h("th",null,"Dura\u00e7\u00e3o"),h("th",null,"Status"),h("th",null,"A\u00e7\u00f5es"))),
         h("tbody",null,ultimas.map(s=>h("tr",{key:s.id},
-          h("td",null,h("input",{type:"checkbox",checked:selIds.includes(s.id),onChange:()=>toggleT(s.id),style:{cursor:"pointer",accentColor:"#ff8a3d"}})),h("td",null,b2(s.start_datetime)),h("td",null,s.end_datetime?b2(s.end_datetime):"\u2014"),h("td",null,nomeMaq(s.machine_id)),
+          h("td",null,h("input",{type:"checkbox",checked:selIds.includes(s.id),onChange:()=>toggleT(s.id),style:{cursor:"pointer",accentColor:"#ff8a3d"}})),h("td",null,b2(s.start_datetime)),h("td",null,s.end_datetime?b2(s.end_datetime):"\u2014"),h("td",null,maqNumModelo(s.machine_id).num),h("td",null,maqNumModelo(s.machine_id).modelo),
           h("td",null,numBat(s.removed_battery_id)),h("td",null,numBat(s.installed_battery_id)),h("td",null,nomeOper(s.operator_id)),
           h("td",null,nomeTurno(s.shift_id)),h("td",null,nomeSetor(s.sector_id)),
           h("td",null,s.total_minutes!=null?vl(s.total_minutes):"\u2014"),
