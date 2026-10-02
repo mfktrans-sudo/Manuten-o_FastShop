@@ -2044,11 +2044,11 @@ function IndicadoresTrocasTab({data:e,setData:sxSetData,logAudit:sxLog}){
       dica&&h("p",{className:"hint"},dica),
       linhas.length===0?h("p",{className:"muted"},"Sem dados no per\u00edodo."):
       h("div",{className:"table-wrap"},h("table",null,
-        h("thead",null,h("tr",null,h("th",null,"#"),campo==="maquina"?h(g.default.Fragment,null,h("th",null,"N\u00ba da m\u00e1quina"),h("th",null,"Modelo")):h("th",null,colNome),h("th",null,"Trocas"),h("th",null,"Tempo m\u00e9dio"),h("th",null,"Tempo total"),campo==="operador"&&h("th",null,"Tempo acumulado (h:min)"),h("th",null,"\u00daltima troca"))),
+        h("thead",null,h("tr",null,h("th",null,"#"),campo==="maquina"?h(g.default.Fragment,null,h("th",null,"N\u00ba da m\u00e1quina"),h("th",null,"Modelo")):h("th",null,colNome),h("th",null,"Trocas"),h("th",null,"Tempo m\u00e9dio"),h("th",null,"Tempo total"),h("th",null,"Tempo acumulado (h:min)"),h("th",null,"\u00daltima troca"))),
         h("tbody",null,linhas.map((r,i)=>h("tr",{key:r.key},
           h("td",null,i+1,"\u00ba"),campo==="maquina"?h(g.default.Fragment,null,h("td",null,maqNumModelo(r.key).num),h("td",null,maqNumModelo(r.key).modelo)):h("td",null,r[campo]),h("td",null,r.trocas),
           h("td",null,r.tempoMedio?vl(r.tempoMedio):"\u2014"),h("td",null,r.tempoTotal?vl(r.tempoTotal):"\u2014"),
-          campo==="operador"&&h("td",null,r.tempoTotal?(Math.floor(r.tempoTotal/60)+"h "+("0"+(r.tempoTotal%60)).slice(-2)+"min ("+(r.tempoTotal/60).toFixed(2).replace(".",",")+" h)"):"\u2014"),
+          h("td",null,r.tempoTotal?(Math.floor(r.tempoTotal/60)+"h "+("0"+(r.tempoTotal%60)).slice(-2)+"min ("+(r.tempoTotal/60).toFixed(2).replace(".",",")+" h)"):"\u2014"),
           h("td",null,r.ultima?b2(r.ultima):"\u2014")))))));
   }
   return h("div",{className:"section"},
