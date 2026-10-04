@@ -110,16 +110,17 @@
 .tbl-uniform th:nth-child(7), .tbl-uniform td:nth-child(7) { width:auto; min-width:190px; overflow:visible; }
 .tbl-uniform th.col-actions, .tbl-uniform td.col-actions { display:table-cell; }
 
-/* Listas compactas (Operadores, Baterias e demais com ações rotuladas): colunas ajustadas ao conteúdo, tudo em uma linha */
+/* Listas compactas (Operadores, Baterias e demais com ações rotuladas): ocupam toda a largura, linhas baixas e ações alinhadas à direita */
 .tbl-compact { table-layout:auto; width:100%; }
-.tbl-compact th, .tbl-compact td { width:1%; white-space:nowrap; vertical-align:middle; padding:8px 18px 8px 10px; }
+.tbl-compact th, .tbl-compact td { white-space:nowrap; vertical-align:middle; padding:8px 14px; }
 .tbl-compact td { padding-top:7px; padding-bottom:7px; }
-.tbl-compact th:first-child, .tbl-compact td:first-child { padding-left:12px; padding-right:8px; }
+.tbl-compact th:first-child, .tbl-compact td:first-child { width:1%; padding-left:14px; padding-right:8px; }
 .tbl-compact td img, .tbl-compact td > div[style*="border-radius"] { flex-shrink:0; }
-.tbl-compact th.col-actions, .tbl-compact td.col-actions { width:auto; white-space:nowrap; }
+.tbl-compact th.col-actions, .tbl-compact td.col-actions { width:1%; text-align:right; padding-right:16px; }
 .tbl-compact td.col-actions > * { vertical-align:middle; }
-.tbl-compact td.col-actions > div { display:inline-flex !important; flex-wrap:nowrap !important; }
+.tbl-compact td.col-actions > div { display:inline-flex !important; flex-wrap:nowrap !important; justify-content:flex-end; }
 .tbl-compact td.col-actions .icon-btn { display:inline-flex; vertical-align:middle; margin-right:4px; }
+.tbl-compact tbody tr:hover td { background:rgba(255,255,255,.03); }
 </style>
 </head>
 <body>
