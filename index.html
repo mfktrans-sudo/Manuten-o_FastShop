@@ -135,7 +135,7 @@
 .tbl-bat th:nth-child(1), .tbl-bat td:nth-child(1) { width:42px; }
 .tbl-bat th:nth-child(2), .tbl-bat td:nth-child(2) { width:68px; }
 .tbl-bat th:nth-child(3), .tbl-bat td:nth-child(3) { width:8%; }
-.tbl-bat th:nth-child(4), .tbl-bat td:nth-child(4) { width:18%; }
+.tbl-bat th:nth-child(4), .tbl-bat td:nth-child(4) { width:16%; }
 .tbl-bat th:nth-child(5), .tbl-bat td:nth-child(5) { width:9%; }
 .tbl-bat th:nth-child(6), .tbl-bat td:nth-child(6) { width:15%; }
 .tbl-bat th:nth-child(7), .tbl-bat td:nth-child(7) { width:12%; }
@@ -172,6 +172,15 @@
 .table-wrap td { vertical-align:middle; }
 td.col-actions > .icon-btn { width:30px; height:30px; padding:0; align-items:center; justify-content:center; vertical-align:middle; margin-right:6px; }
 td.col-actions { white-space:nowrap; }
+
+/* v36b: largura FIXA da coluna de ações (layout fixo ignora min-width) + tabela rola na horizontal se faltar espaço */
+.tbl-fixed { min-width:1320px; }
+.tbl-fixed th.col-actions, .tbl-fixed td.col-actions { width:340px !important; min-width:340px !important; overflow:visible !important; }
+.tbl-op th.col-actions, .tbl-op td.col-actions { width:230px !important; min-width:230px !important; }
+.tbl-uniform th.col-actions, .tbl-uniform td.col-actions { width:230px !important; min-width:230px !important; }
+.tbl-compact th.col-actions, .tbl-compact td.col-actions { width:auto !important; }
+.tbl-fixed td.col-actions .row-actions, .tbl-uniform td.col-actions .row-actions, .tbl-compact td.col-actions .row-actions { flex-wrap:nowrap !important; }
+.tbl-fixed td.col-actions .row-actions > .icon-btn { order:0; }
 </style>
 </head>
 <body>
