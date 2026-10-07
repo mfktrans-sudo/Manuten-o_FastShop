@@ -1287,6 +1287,7 @@ function BtSwapArt({tipo:tp}){
       h("g",{transform:"translate("+(bx+4)+",57)"},bat("bt-old","#ef4444"),bat("bt-new","#22c55e"))))
 }
 function x0e({data:e,openHistory:n,openEdit:l,openFinalizar:a}){
+  useFotoVersion();
   var h=g.default.createElement,o=y0e(),{machines:i,batteries:c,swaps:f,sectors:m,shifts:sh,operators:ops}=e;
   var num=function(id){var x=c.find(w=>w.id===id);return x?x.numero:"\u2014"};
   var lista=i.filter(x=>x.status==="Em troca de bateria").map(x=>({m:x,s:f.find(w=>w.machine_id===x.id&&w.status==="em_andamento")}))
@@ -1303,8 +1304,14 @@ function x0e({data:e,openHistory:n,openEdit:l,openFinalizar:a}){
       h("div",{className:"swap-live-head"},
         h("div",{className:"machine-thumb"},h(Tj,{tipo:x.tipo,size:26})),
         h("div",{style:{flex:1,minWidth:0}},h("div",{className:"machine-title"},x.code),
-          h("div",{className:"machine-sub"},(pal?"Transpaleteira":"Empilhadeira")+" \u00b7 N\u00b0 "+(x.patrimonio||"\u2014")+" \u00b7 "+(m.find(z=>z.id===x.setor_id)?.nome||"Sem setor")+(op?" \u00b7 "+op.nome:""))),
+          h("div",{className:"machine-sub"},(pal?"Transpaleteira":"Empilhadeira")+" \u00b7 N\u00b0 "+(x.patrimonio||"\u2014")+" \u00b7 "+(m.find(z=>z.id===x.setor_id)?.nome||"Sem setor"))),
         h(Va,{color:fe.warn},"Em troca de bateria")),
+      op&&h("div",{className:"swap-op"},
+        (function(){var src=resolveFoto(op.foto);return src?h("img",{src:src,alt:op.nome,className:"swap-op-foto"}):h("div",{className:"swap-op-foto swap-op-inicial"},(op.nome||"?").trim().charAt(0).toUpperCase())})(),
+        h("div",{style:{minWidth:0}},
+          h("div",{className:"swap-op-label"},"Colaborador respons\u00e1vel"),
+          h("div",{className:"swap-op-nome"},op.nome),
+          h("div",{className:"swap-op-sub"},[op.matricula&&("Matr\u00edcula "+op.matricula),op.cargo].filter(Boolean).join(" \u00b7 ")))),
       h(BtSwapArt,{tipo:x.tipo}),
       h("div",{className:"swap-legend"},h("span",{className:"lg-old"},"\u25CF Retirando: "+(s?num(s.removed_battery_id):"\u2014")),h("span",{className:"lg-new"},"\u25CF Instalando: "+(s?num(s.installed_battery_id):"\u2014"))),
       h("div",{className:"swap-timeline"},st.map((p,ix)=>h("div",{key:ix,className:"tl-step tl-"+p.k},h("div",{className:"tl-dot"}),h("div",{className:"tl-title"},p.t),h("div",{className:"tl-desc"},p.d)))),
@@ -2579,6 +2586,12 @@ function _j(){let[e,t]=(0,g.useState)(!0),[cbN0,l]=(0,g.useState)("painel"),[r,a
   .bt-new { animation: btNew 6s ease-in-out infinite; }
   @keyframes btOld { 0%,10%{transform:translate(0,0);opacity:1} 25%{transform:translate(0,-42px);opacity:1} 45%{transform:translate(-105px,-42px);opacity:.15} 46%,94%{transform:translate(-105px,-42px);opacity:0} 100%{transform:translate(0,0);opacity:1} }
   @keyframes btNew { 0%,45%{transform:translate(105px,-42px);opacity:0} 55%{transform:translate(105px,-42px);opacity:1} 75%{transform:translate(0,-42px);opacity:1} 90%{transform:translate(0,0);opacity:1} 95%{transform:translate(0,0);opacity:1} 100%{transform:translate(0,0);opacity:0} }
+  .swap-op { display:flex; align-items:center; gap:12px; padding:10px 12px; background: var(--panel-alt); border:1px solid var(--border); border-radius:10px; }
+  .swap-op-foto { width:52px; height:52px; border-radius:50%; object-fit:cover; flex-shrink:0; border:2px solid var(--warn); }
+  .swap-op-inicial { display:flex; align-items:center; justify-content:center; background: var(--panel); font-weight:700; font-size:20px; }
+  .swap-op-label { font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--text-dim); }
+  .swap-op-nome { font-size:15px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .swap-op-sub { font-size:12px; color: var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .swap-legend { display:flex; justify-content:space-between; font-size:12px; font-weight:600; }
   .lg-old { color:#ef4444; } .lg-new { color:#22c55e; }
   .swap-timeline { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; position:relative; }
