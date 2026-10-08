@@ -2173,6 +2173,11 @@ function IndicadoresTrocasTab({data:e,setData:sxSetData,logAudit:sxLog}){
   let[fOper,setFOper]=(0,g.useState)("");
   let[fStatus,setFStatus]=(0,g.useState)("");
   let[selT,setSelT]=(0,g.useState)([]);
+  let[top5,setTop5]=(0,g.useState)(function(){try{return localStorage.getItem("cb_ind_trocas_top5")==="1"}catch(e){return false}});
+  let TOPN=top5?5:10;
+  function setTop5Salvo(v){setTop5(v);try{localStorage.setItem("cb_ind_trocas_top5",v?"1":"0")}catch(e){}}
+  function fmtT(m){if(m==null||isNaN(m))return"\u2014";let t=Math.round(m*60),hh=Math.floor(t/3600),mm=Math.floor((t%3600)/60),ss=t%60,p=function(n){return("0"+n).slice(-2)};return hh>0?hh+"h "+p(mm)+"min "+p(ss)+"s":(mm>0?mm+"min "+p(ss)+"s":ss+"s");}
+  function fmtHMS(m){let t=Math.round(m*60),hh=Math.floor(t/3600),mm=Math.floor((t%3600)/60),ss=t%60,p=function(n){return("0"+n).slice(-2)};return hh+"h "+p(mm)+"min "+p(ss)+"s";}
   function nomeMaq(id){return ms.find(x=>x.id===id)?.code||"\u2014";}
   function maqNumModelo(id){return btMaqNumModelo(ms.find(x=>x.id===id))}
   function nomeTurno(id){return shs.find(x=>x.id===id)?.nome||"\u2014";}
@@ -2205,7 +2210,7 @@ function IndicadoresTrocasTab({data:e,setData:sxSetData,logAudit:sxLog}){
     lista.forEach(s=>{let k=keyFn(s);(mapa[k]=mapa[k]||[]).push(s);});
     return Object.keys(mapa).map(k=>{
       let arr=mapa[k],fin=arr.filter(s=>s.total_minutes!=null);
-      let o={key:k,trocas:arr.length,tempoMedio:Math.round(media(fin.map(s=>s.total_minutes))),tempoTotal:Math.round(fin.reduce((a,s)=>a+s.total_minutes,0)),ultima:arr.map(s=>s.start_datetime).sort().slice(-1)[0]||null};
+      let o={key:k,trocas:arr.length,tempoMedio:media(fin.map(s=>s.total_minutes)),tempoTotal:fin.reduce((a,s)=>a+s.total_minutes,0),ultima:arr.map(s=>s.start_datetime).sort().slice(-1)[0]||null};
       o[campo]=labelFn(k);
       return o;
     });
@@ -2218,6 +2223,9 @@ function IndicadoresTrocasTab({data:e,setData:sxSetData,logAudit:sxLog}){
   let porOper=agrupar(s=>s.operator_id||"",nomeOper,"operador").sort((a,b)=>b.trocas-a.trocas);
   let porMaq=agrupar(s=>s.machine_id||"",nomeMaq,"maquina").sort((a,b)=>b.trocas-a.trocas);
   let porBat=agrupar(s=>s.removed_battery_id||"",numBat,"bateria").sort((a,b)=>b.trocas-a.trocas);
+  let topPorDia=porDia.slice().sort((a,b)=>b.trocas-a.trocas||b.key.localeCompare(a.key)).slice(0,TOPN).sort((a,b)=>a.key.localeCompare(b.key));
+  let topPorMes=porMes.slice().sort((a,b)=>b.trocas-a.trocas||b.key.localeCompare(a.key)).slice(0,TOPN).sort((a,b)=>a.key.localeCompare(b.key));
+  let topPorHora=porHora.filter(r=>r.trocas>0).sort((a,b)=>b.trocas-a.trocas||a.hora.localeCompare(b.hora)).slice(0,TOPN);
   let turnoTop=porTurno[0]?porTurno[0].turno:"\u2014";
   let maqTop=porMaq[0]?porMaq[0].maquina+" ("+porMaq[0].trocas+")":"\u2014";
   let ultimas=lista.slice().sort((a,b)=>new Date(b.start_datetime)-new Date(a.start_datetime)).slice(0,100);
@@ -2237,19 +2245,19 @@ function IndicadoresTrocasTab({data:e,setData:sxSetData,logAudit:sxLog}){
   }
   function limpar(){setFDe("");setFAte("");setFMaq("");setFTurno("");setFSetor("");setFOper("");setFStatus("");}
   function exportar(){
-    let linhas=[["Data/hora in\u00edcio","Data/hora fim","M\u00e1quina","Bateria retirada","Bateria instalada","Operador","Turno","Setor","Dura\u00e7\u00e3o (min)","Status"].join(";")].concat(ultimasTodas().map(s=>[b2(s.start_datetime),s.end_datetime?b2(s.end_datetime):"",nomeMaq(s.machine_id),numBat(s.removed_battery_id),numBat(s.installed_battery_id),nomeOper(s.operator_id),nomeTurno(s.shift_id),nomeSetor(s.sector_id),s.total_minutes!=null?Math.round(s.total_minutes):"",s.status==="em_andamento"?"Em andamento":"Conclu\u00edda"].join(";")));
+    let linhas=[["Data/hora in\u00edcio","Data/hora fim","M\u00e1quina","Bateria retirada","Bateria instalada","Operador","Turno","Setor","Dura\u00e7\u00e3o (min)","Dura\u00e7\u00e3o (h:min:s)","Status"].join(";")].concat(ultimasTodas().map(s=>[b2(s.start_datetime),s.end_datetime?b2(s.end_datetime):"",nomeMaq(s.machine_id),numBat(s.removed_battery_id),numBat(s.installed_battery_id),nomeOper(s.operator_id),nomeTurno(s.shift_id),nomeSetor(s.sector_id),s.total_minutes!=null?(Math.round(s.total_minutes*100)/100).toString().replace(".",","):"",s.total_minutes!=null?fmtHMS(s.total_minutes):"",s.status==="em_andamento"?"Em andamento":"Conclu\u00edda"].join(";")));
     let blob=new Blob(["\uFEFF"+linhas.join("\n")],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");
     a.href=url;a.download="indicadores_trocas_bateria.csv";a.click();URL.revokeObjectURL(url);
   }
   function ultimasTodas(){return lista.slice().sort((a,b)=>new Date(b.start_datetime)-new Date(a.start_datetime));}
-  function grafico(titulo,dataArr,xKey,yKey,cor,angulado){
+  function grafico(titulo,dataArr,xKey,yKey,cor,angulado,tempoTip){
     return h("div",{className:"chart-card"},h("h4",null,titulo),
       dataArr.length===0?h("p",{className:"muted"},"Sem dados no per\u00edodo."):
       h(Ia,{width:"100%",height:220},h(Os,{data:dataArr},
         h(za,{stroke:fe.border,strokeDasharray:"3 3"}),
         h(Ua,angulado?{dataKey:xKey,stroke:fe.textDim,fontSize:10,interval:0,angle:-20,textAnchor:"end",height:60}:{dataKey:xKey,stroke:fe.textDim,fontSize:11}),
         h(Fa,{stroke:fe.textDim,fontSize:11,allowDecimals:false}),
-        h(Na,{contentStyle:{background:fe.panelAlt,border:"1px solid "+fe.border}}),
+        h(Na,{contentStyle:{background:fe.panelAlt,border:"1px solid "+fe.border},formatter:tempoTip?function(v){return[fmtT(v),"Tempo m\u00e9dio"]}:undefined}),
         h($o,{dataKey:yKey,fill:cor,radius:[4,4,0,0]}))));
   }
   function tabelaRanking(titulo,dica,linhas,colNome,campo){
@@ -2258,11 +2266,11 @@ function IndicadoresTrocasTab({data:e,setData:sxSetData,logAudit:sxLog}){
       dica&&h("p",{className:"hint"},dica),
       linhas.length===0?h("p",{className:"muted"},"Sem dados no per\u00edodo."):
       h("div",{className:"table-wrap"},h("table",null,
-        h("thead",null,h("tr",null,h("th",null,"#"),campo==="maquina"?h(g.default.Fragment,null,h("th",null,"N\u00ba da m\u00e1quina"),h("th",null,"Modelo")):h("th",null,colNome),h("th",null,"Trocas"),h("th",null,"Tempo m\u00e9dio"),h("th",null,"Tempo total"),h("th",null,"Tempo acumulado (h:min)"),h("th",null,"\u00daltima troca"))),
+        h("thead",null,h("tr",null,h("th",null,"#"),campo==="maquina"?h(g.default.Fragment,null,h("th",null,"N\u00ba da m\u00e1quina"),h("th",null,"Modelo")):h("th",null,colNome),h("th",null,"Trocas"),h("th",null,"Tempo m\u00e9dio"),h("th",null,"Tempo total"),h("th",null,"Tempo acumulado (h:min:s)"),h("th",null,"\u00daltima troca"))),
         h("tbody",null,linhas.map((r,i)=>h("tr",{key:r.key},
           h("td",null,i+1,"\u00ba"),campo==="maquina"?h(g.default.Fragment,null,h("td",null,maqNumModelo(r.key).num),h("td",null,maqNumModelo(r.key).modelo)):h("td",null,r[campo]),h("td",null,r.trocas),
-          h("td",null,r.tempoMedio?vl(r.tempoMedio):"\u2014"),h("td",null,r.tempoTotal?vl(r.tempoTotal):"\u2014"),
-          h("td",null,r.tempoTotal?(Math.floor(r.tempoTotal/60)+"h "+("0"+(r.tempoTotal%60)).slice(-2)+"min ("+(r.tempoTotal/60).toFixed(2).replace(".",",")+" h)"):"\u2014"),
+          h("td",null,r.tempoMedio?fmtT(r.tempoMedio):"\u2014"),h("td",null,r.tempoTotal?fmtT(r.tempoTotal):"\u2014"),
+          h("td",null,r.tempoTotal?fmtHMS(r.tempoTotal)+" ("+(r.tempoTotal/60).toFixed(2).replace(".",",")+" h)":"\u2014"),
           h("td",null,r.ultima?b2(r.ultima):"\u2014")))))));
   }
   return h("div",{className:"section"},
@@ -2282,26 +2290,27 @@ function IndicadoresTrocasTab({data:e,setData:sxSetData,logAudit:sxLog}){
       h(ln,{label:"Trocas no per\u00edodo",value:lista.length,icon:h(ri,{size:18})}),
       h(ln,{label:"Conclu\u00eddas",value:concluidas.length,icon:h(ri,{size:18})}),
       h(ln,{label:"Em andamento",value:emAndamento,icon:h(ri,{size:18}),accent:emAndamento>0?fe.warn:undefined}),
-      h(ln,{label:"Tempo m\u00e9dio de troca",value:vl(tempoMedio),icon:h(md,{size:18})}),
-      h(ln,{label:"Menor / maior tempo",value:tempoMin==null?"\u2014":vl(tempoMin)+" / "+vl(tempoMax),icon:h(md,{size:18})}),
+      h(ln,{label:"Tempo m\u00e9dio de troca",value:fmtT(tempoMedio),icon:h(md,{size:18})}),
+      h(ln,{label:"Menor / maior tempo",value:tempoMin==null?"\u2014":fmtT(tempoMin)+" / "+fmtT(tempoMax),icon:h(md,{size:18})}),
       h(ln,{label:"Turno com mais trocas",value:turnoTop,icon:h(qa,{size:18}),accent:fe.warn}),
       h(ln,{label:"M\u00e1quina com mais trocas",value:maqTop,icon:h(qa,{size:18}),accent:fe.bad})),
     lista.length===0?h(Mj,{icon:h(hd,{size:32}),text:"Nenhuma troca de bateria encontrada para os filtros selecionados."}):h(g.default.Fragment,null,
+      h("div",{style:{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",margin:"4px 0 12px"}},h("strong",null,"Gr\u00e1ficos: Top "+TOPN),h("label",{style:{display:"flex",alignItems:"center",gap:6,cursor:"pointer"}},h("input",{type:"checkbox",checked:top5,onChange:ev=>setTop5Salvo(ev.target.checked),style:{cursor:"pointer",accentColor:"#ff8a3d"}}),"Mostrar apenas Top 5 (fica salvo)")),
       h("div",{className:"charts-grid"},
-        h("div",{className:"chart-card"},h("h4",null,"Trocas de bateria por dia (\u00faltimos 30 dias com registro)"),
-          h(Ia,{width:"100%",height:220},h(h2,{data:porDia},
+        h("div",{className:"chart-card"},h("h4",null,"Trocas de bateria por dia (top "+TOPN+" dias entre os \u00faltimos 30 com registro)"),
+          h(Ia,{width:"100%",height:220},h(h2,{data:topPorDia},
             h(za,{stroke:fe.border,strokeDasharray:"3 3"}),h(Ua,{dataKey:"dia",stroke:fe.textDim,fontSize:11}),h(Fa,{stroke:fe.textDim,fontSize:11,allowDecimals:false}),
             h(Na,{contentStyle:{background:fe.panelAlt,border:"1px solid "+fe.border}}),h(fm,{type:"monotone",dataKey:"trocas",stroke:fe.accent,strokeWidth:2,dot:false})))),
-        grafico("Trocas por hora do dia",porHora,"hora","trocas",fe.info,false),
-        grafico("Trocas por turno",porTurno,"turno","trocas",fe.info,false),
-        grafico("Trocas por setor",porSetor,"setor","trocas",fe.ok,false),
-        grafico("Trocas por operador (top 10)",porOper.slice(0,10),"operador","trocas",fe.accent,true),
-        grafico("Trocas por m\u00e1quina (top 10)",porMaq.slice(0,10),"maquina","trocas",fe.accent,true),
-        grafico("Tempo m\u00e9dio de troca por m\u00e1quina (min)",porMaq.filter(r=>r.tempoMedio>0).sort((a,b)=>b.tempoMedio-a.tempoMedio).slice(0,10),"maquina","tempoMedio",fe.warn,true),
-        h("div",{className:"chart-card"},h("h4",null,"Evolu\u00e7\u00e3o mensal \u2014 tempo m\u00e9dio de troca (min)"),
-          h(Ia,{width:"100%",height:220},h(h2,{data:porMes},
+        grafico("Trocas por hora do dia (top "+TOPN+" horas)",topPorHora,"hora","trocas",fe.info,false),
+        grafico("Trocas por turno (top "+TOPN+")",porTurno.slice(0,TOPN),"turno","trocas",fe.info,false),
+        grafico("Trocas por setor (top "+TOPN+")",porSetor.slice(0,TOPN),"setor","trocas",fe.ok,false),
+        grafico("Trocas por operador (top "+TOPN+")",porOper.slice(0,TOPN),"operador","trocas",fe.accent,true),
+        grafico("Trocas por m\u00e1quina (top "+TOPN+")",porMaq.slice(0,TOPN),"maquina","trocas",fe.accent,true),
+        grafico("Tempo m\u00e9dio de troca por m\u00e1quina (min) \u2014 top "+TOPN,porMaq.filter(r=>r.tempoMedio>0).sort((a,b)=>b.tempoMedio-a.tempoMedio).slice(0,TOPN),"maquina","tempoMedio",fe.warn,true,true),
+        h("div",{className:"chart-card"},h("h4",null,"Evolu\u00e7\u00e3o mensal \u2014 tempo m\u00e9dio de troca (min) \u2014 top "+TOPN+" meses com mais trocas"),
+          h(Ia,{width:"100%",height:220},h(h2,{data:topPorMes},
             h(za,{stroke:fe.border,strokeDasharray:"3 3"}),h(Ua,{dataKey:"mes",stroke:fe.textDim,fontSize:11}),h(Fa,{stroke:fe.textDim,fontSize:11}),
-            h(Na,{contentStyle:{background:fe.panelAlt,border:"1px solid "+fe.border}}),h(fm,{type:"monotone",dataKey:"tempoMedio",stroke:fe.info,strokeWidth:2,dot:false}))))),
+            h(Na,{contentStyle:{background:fe.panelAlt,border:"1px solid "+fe.border},formatter:function(v){return[fmtT(v),"Tempo m\u00e9dio"]}}),h(fm,{type:"monotone",dataKey:"tempoMedio",stroke:fe.info,strokeWidth:2,dot:false}))))),
       tabelaRanking("Ranking por m\u00e1quina",null,porMaq,"M\u00e1quina","maquina"),
       tabelaRanking("Ranking por operador","Reflete a quantidade de trocas registradas por operador. N\u00e3o deve ser usado isoladamente como medida de produtividade \u2014 considere o contexto operacional (turno, setor, disponibilidade de baterias).",porOper,"Operador","operador"),
       tabelaRanking("Baterias mais retiradas (mais trocadas)",null,porBat.slice(0,15),"Bateria","bateria"),
@@ -2313,7 +2322,7 @@ function IndicadoresTrocasTab({data:e,setData:sxSetData,logAudit:sxLog}){
           h("td",null,h("input",{type:"checkbox",checked:selIds.includes(s.id),onChange:()=>toggleT(s.id),style:{cursor:"pointer",accentColor:"#ff8a3d"}})),h("td",null,b2(s.start_datetime)),h("td",null,s.end_datetime?b2(s.end_datetime):"\u2014"),h("td",null,maqNumModelo(s.machine_id).num),h("td",null,maqNumModelo(s.machine_id).modelo),
           h("td",null,numBat(s.removed_battery_id)),h("td",null,numBat(s.installed_battery_id)),h("td",null,nomeOper(s.operator_id)),
           h("td",null,nomeTurno(s.shift_id)),h("td",null,nomeSetor(s.sector_id)),
-          h("td",null,s.total_minutes!=null?vl(s.total_minutes):"\u2014"),
+          h("td",null,s.total_minutes!=null?fmtT(s.total_minutes):"\u2014"),
           h("td",null,h(Va,{color:s.status==="em_andamento"?fe.warn:fe.ok},s.status==="em_andamento"?"Em andamento":"Conclu\u00edda")),h("td",null,h("button",{className:"btn btn-danger btn-sm",title:s.status==="em_andamento"?"Finalize a troca antes de excluir":"Excluir esta troca",disabled:s.status==="em_andamento",onClick:()=>excluirTrocas([s.id])},"Excluir")))))))));
 }
 
