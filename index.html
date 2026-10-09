@@ -2384,6 +2384,8 @@ var CBID_MESES=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov
   ".cbid-sep{width:1px;height:22px;background:var(--border);flex-shrink:0}",
   ".cbid-chip{padding:4px 11px;border-radius:5px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--text-dim);transition:all .18s;font-family:inherit}",
   ".cbid-chip.on{font-weight:600}",
+  ".cbid-chip.cbid-chip-foto{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 8px;min-width:56px}",
+  ".cbid-chip-img{height:34px;width:auto;max-width:48px;object-fit:contain;border-radius:4px;display:block}",
   ".cbid-badge{font-size:10px;padding:3px 9px;border-radius:20px;border:1px solid;letter-spacing:.4px}",
   ".cbid-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0}",
   ".cbid-kpi{position:relative;background:var(--panel);border:1px solid var(--border);border-top:3px solid var(--kc);border-radius:10px;padding:14px 16px;overflow:hidden}",
@@ -2506,6 +2508,18 @@ function CbIdCard(H,title,sub,child,extra){
 }
 function CbIndispDash(props){
   var H=g.default.createElement;
+  var fotoVer=useFotoVersion();
+  var fotosMod=(0,g.useMemo)(function(){
+    function nk(x){return String(x||"").toUpperCase().replace(/[^A-Z0-9]/g,"")}
+    var out={};
+    (props.machines||[]).forEach(function(mq){
+      if(!mq||!mq.foto_url)return;
+      var rf=resolveFoto(mq.foto_url);if(!rf)return;
+      var k=nk(cbIdModelo(modeloKeyMaquina(mq)));
+      if(k&&!out[k])out[k]=rf
+    });
+    return out
+  },[props.machines,fotoVer]);
   var recs=(0,g.useMemo)(function(){return cbIdPrep(props.rows,props.machines)},[props.rows,props.machines]);
   var st1=(0,g.useState)("todos"),ano=st1[0],setAno=st1[1];
   var st2=(0,g.useState)({}),off=st2[0],setOff=st2[1];
@@ -2534,7 +2548,7 @@ function CbIndispDash(props){
     anos.concat(["todos"]).map(function(a){var on=String(anoOk)===String(a);return H("button",{key:a,className:"cbid-chip"+(on?" on":""),style:on?{borderColor:CBID_C.blue,color:CBID_C.blue,background:CBID_C.blue+"22"}:null,onClick:function(){setAno(a)}},a==="todos"?"Todos":a)}),
     H("div",{className:"cbid-sep"}),
     H("span",{className:"cbid-lbl"},"Equipamentos:"),
-    modelos.map(function(m){var on=!!ativos[m.key];return H("button",{key:m.key,className:"cbid-chip"+(on?" on":""),style:on?{borderColor:m.cor,color:m.cor,background:m.cor+"22"}:null,onClick:function(){toggle(m.key)}},m.key)}),
+    modelos.map(function(m){var on=!!ativos[m.key];var ft=fotosMod[String(m.key||"").toUpperCase().replace(/[^A-Z0-9]/g,"")];return H("button",{key:m.key,className:"cbid-chip"+(ft?" cbid-chip-foto":"")+(on?" on":""),style:on?{borderColor:m.cor,color:m.cor,background:m.cor+"22"}:null,onClick:function(){toggle(m.key)}},ft?H("img",{src:ft,alt:"",className:"cbid-chip-img"}):null,ft?H("span",null,m.key):m.key)}),
     nAtivos<modelos.length&&H("button",{className:"cbid-chip",style:{borderColor:CBID_C.bad,color:CBID_C.bad},onClick:function(){setOff({})}},"✕ Limpar"),
     H("div",{style:{flex:1}}),
     H("span",{className:"cbid-badge",style:{color:CBID_C.bad,borderColor:CBID_C.bad+"66",background:CBID_C.bad+"14"}},D.total+" Registros"),
