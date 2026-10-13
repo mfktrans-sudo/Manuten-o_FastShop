@@ -2293,9 +2293,9 @@ function IndicadoresTrocasTab({data:e,setData:sxSetData,logAudit:sxLog}){
   let tempoMax=tempos.length?Math.max.apply(null,tempos):null;
   let tempoMin=tempos.length?Math.min.apply(null,tempos):null;
   let emAndamento=lista.filter(s=>s.status==="em_andamento").length;
-  function agrupar(keyFn,labelFn,campo){
+  function agrupar(keyFn,labelFn,campo,src){
     let mapa={};
-    lista.forEach(s=>{let k=keyFn(s);(mapa[k]=mapa[k]||[]).push(s);});
+    (src||lista).forEach(s=>{let k=keyFn(s);(mapa[k]=mapa[k]||[]).push(s);});
     return Object.keys(mapa).map(k=>{
       let arr=mapa[k],fin=arr.filter(s=>s.total_minutes!=null);
       let o={key:k,trocas:arr.length,tempoMedio:media(fin.map(s=>s.total_minutes)),tempoTotal:fin.reduce((a,s)=>a+s.total_minutes,0),ultima:arr.map(s=>s.start_datetime).sort().slice(-1)[0]||null};
@@ -2361,6 +2361,29 @@ function IndicadoresTrocasTab({data:e,setData:sxSetData,logAudit:sxLog}){
           h("td",null,r.tempoTotal?fmtHMS(r.tempoTotal)+" ("+(r.tempoTotal/60).toFixed(2).replace(".",",")+" h)":"\u2014"),
           h("td",null,r.ultima?b2(r.ultima):"\u2014")))))));
   }
+  var TIPO_EMP="Empilhadeira el\u00e9trica",TIPO_TRP="Transpaleteira el\u00e9trica";
+  function tipoDaMaq(id){let m=ms.find(x=>x.id===id);return m?(m.tipo||m0e(m.code)):"";}
+  let listaOutros=lista.filter(s=>{let t=tipoDaMaq(s.machine_id);return t!==TIPO_EMP&&t!==TIPO_TRP;});
+  function trocasDoTipo(tipo){return tipo?lista.filter(s=>tipoDaMaq(s.machine_id)===tipo):listaOutros;}
+  function topDoTipo(tipo){let r=agrupar(s=>s.machine_id||"",nomeMaq,"maquina",trocasDoTipo(tipo)).sort((a,b)=>b.trocas-a.trocas)[0];return r?r.maquina+" ("+r.trocas+")":"\u2014";}
+  function painelTipo(titulo,tipo,emoji){
+    let sub=trocasDoTipo(tipo),fin=sub.filter(s=>s.total_minutes!=null),tmp=fin.map(s=>s.total_minutes);
+    let pm=agrupar(s=>s.machine_id||"",nomeMaq,"maquina",sub).sort((a,b)=>b.trocas-a.trocas);
+    return h("div",{key:"painel-"+titulo,className:"painel-tipo-maq",style:{margin:"26px 0 8px",padding:"14px 16px",border:"1px solid var(--border)",borderRadius:12,background:"var(--panel-alt)"}},
+      h("h3",{className:"ranking-title",style:{marginTop:0}},emoji+" "+titulo),
+      h("div",{className:"stat-grid",style:{marginTop:10}},
+        h(ln,{label:"Trocas no per\u00edodo",value:sub.length,icon:h(ri,{size:18})}),
+        h(ln,{label:"Conclu\u00eddas",value:fin.length,icon:h(ri,{size:18})}),
+        h(ln,{label:"Em andamento",value:sub.filter(s=>s.status==="em_andamento").length,icon:h(ri,{size:18})}),
+        h(ln,{label:"Tempo m\u00e9dio de troca",value:fmtT(media(tmp)),icon:h(md,{size:18})}),
+        h(ln,{label:"Menor / maior tempo",value:tmp.length?fmtT(Math.min.apply(null,tmp))+" / "+fmtT(Math.max.apply(null,tmp)):"\u2014",icon:h(md,{size:18})}),
+        h(ln,{label:"M\u00e1quina com mais trocas",value:pm[0]?pm[0].maquina+" ("+pm[0].trocas+")":"\u2014",icon:h(qa,{size:18}),accent:fe.bad})),
+      sub.length===0?h("p",{className:"muted"},"Nenhuma troca de "+titulo.toLowerCase()+" para os filtros selecionados."):h(g.default.Fragment,null,
+        h("div",{className:"charts-grid"},
+          grafico("Trocas por m\u00e1quina \u2014 "+titulo+" (top "+TOPN+")",pm.slice(0,TOPN),"maquina","trocas",fe.accent,true),
+          grafico("Tempo m\u00e9dio de troca por m\u00e1quina (min) \u2014 "+titulo+" (top "+TOPN+")",pm.filter(r=>r.tempoMedio>0).sort((a,b)=>b.tempoMedio-a.tempoMedio).slice(0,TOPN),"maquina","tempoMedio",fe.warn,true,true)),
+        tabelaRanking("Ranking por m\u00e1quina \u2014 "+titulo,null,pm,"M\u00e1quina","maquina")));
+  }
   return h("div",{className:"section"},
     h("div",{className:"section-head"},h("h2",null,h(CbIcon3D,{name:"indicadores_trocas",size:30}),"Indicadores de Trocas de Bateria")),
     h("div",{className:"filter-bar"},
@@ -2381,7 +2404,8 @@ function IndicadoresTrocasTab({data:e,setData:sxSetData,logAudit:sxLog}){
       h(ln,{label:"Tempo m\u00e9dio de troca",value:fmtT(tempoMedio),icon:h(md,{size:18})}),
       h(ln,{label:"Menor / maior tempo",value:tempoMin==null?"\u2014":fmtT(tempoMin)+" / "+fmtT(tempoMax),icon:h(md,{size:18})}),
       h(ln,{label:"Turno com mais trocas",value:turnoTop,icon:h(qa,{size:18}),accent:fe.warn}),
-      h(ln,{label:"M\u00e1quina com mais trocas",value:maqTop,icon:h(qa,{size:18}),accent:fe.bad})),
+      h(ln,{label:"Empilhadeira com mais trocas",value:topDoTipo(TIPO_EMP),icon:h(qa,{size:18}),accent:fe.bad}),
+      h(ln,{label:"Transpaleteira com mais trocas",value:topDoTipo(TIPO_TRP),icon:h(qa,{size:18}),accent:fe.bad})),
     lista.length===0?h(Mj,{icon:h(hd,{size:32}),text:"Nenhuma troca de bateria encontrada para os filtros selecionados."}):h(g.default.Fragment,null,
       h("div",{style:{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",margin:"4px 0 12px"}},h("strong",null,"Gr\u00e1ficos: Top "+TOPN),h("label",{style:{display:"flex",alignItems:"center",gap:6,cursor:"pointer"}},h("input",{type:"checkbox",checked:top5,onChange:ev=>setTop5Salvo(ev.target.checked),style:{cursor:"pointer",accentColor:"#0ea5e9"}}),"Mostrar apenas Top 5 (fica salvo)")),
       h("div",{className:"charts-grid"},
@@ -2393,13 +2417,13 @@ function IndicadoresTrocasTab({data:e,setData:sxSetData,logAudit:sxLog}){
         grafico("Trocas por turno (top "+TOPN+")",porTurno.slice(0,TOPN),"turno","trocas",fe.info,false),
         grafico("Trocas por setor (top "+TOPN+")",porSetor.slice(0,TOPN),"setor","trocas",fe.ok,false),
         grafico("Trocas por operador (top "+TOPN+")",porOper.slice(0,TOPN),"operador","trocas",fe.accent,true),
-        grafico("Trocas por m\u00e1quina (top "+TOPN+")",porMaq.slice(0,TOPN),"maquina","trocas",fe.accent,true),
-        grafico("Tempo m\u00e9dio de troca por m\u00e1quina (min) \u2014 top "+TOPN,porMaq.filter(r=>r.tempoMedio>0).sort((a,b)=>b.tempoMedio-a.tempoMedio).slice(0,TOPN),"maquina","tempoMedio",fe.warn,true,true),
         h("div",{className:"chart-card"},h("h4",null,"Evolu\u00e7\u00e3o mensal \u2014 tempo m\u00e9dio de troca (min) \u2014 top "+TOPN+" meses com mais trocas"),
           h(Ia,{width:"100%",height:220},h(h2,{data:topPorMes},
             h(za,{stroke:fe.border,strokeDasharray:"3 3"}),h(Ua,{dataKey:"mes",stroke:fe.textDim,fontSize:11}),h(Fa,{stroke:fe.textDim,fontSize:11}),
             h(Na,{contentStyle:{background:fe.panelAlt,border:"1px solid "+fe.border},formatter:function(v){return[fmtT(v),"Tempo m\u00e9dio"]}}),h(fm,{type:"monotone",dataKey:"tempoMedio",stroke:fe.info,strokeWidth:2,dot:false}))))),
-      tabelaRanking("Ranking por m\u00e1quina",null,porMaq,"M\u00e1quina","maquina"),
+      painelTipo("Empilhadeiras el\u00e9tricas",TIPO_EMP,"\ud83d\ude9c"),
+      painelTipo("Transpaleteiras el\u00e9tricas",TIPO_TRP,"\ud83d\udef6"),
+      listaOutros.length>0&&painelTipo("Outros equipamentos (rebocadores e demais)",null,"\ud83d\ude9b"),
       tabelaRanking("Ranking por operador","Reflete a quantidade de trocas registradas por operador. N\u00e3o deve ser usado isoladamente como medida de produtividade \u2014 considere o contexto operacional (turno, setor, disponibilidade de baterias).",porOper,"Operador","operador"),
       tabelaRanking("Baterias mais retiradas (mais trocadas)",null,porBat.slice(0,15),"Bateria","bateria"),
       h("h3",{className:"ranking-title"},"\u00daltimas trocas",lista.length>100?" (100 mais recentes \u2014 use Exportar para a lista completa)":""),
