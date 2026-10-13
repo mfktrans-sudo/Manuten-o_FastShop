@@ -2372,10 +2372,10 @@ function ConsumoBateriasTab({data:e}){
     return h("div",{key:titulo},
       h("h3",{className:"ranking-title"},titulo),dica&&h("p",{className:"hint"},dica),
       linhas.length===0?h("p",{className:"muted"},vazio||"Sem dados no período."):
-      h("div",{className:"table-wrap"},h("table",{style:{tableLayout:"fixed",width:"100%"}},
+      h("div",{className:"table-wrap"},h("table",{style:{tableLayout:"fixed",width:"100%",minWidth:1400}},
         h("colgroup",null,cols.map((c,i)=>h("col",{key:i,style:{width:c.w}}))),
-        h("thead",null,h("tr",null,cols.map((c,i)=>h("th",{key:i},c.l)))),
-        h("tbody",null,linhas.map((r,i)=>h("tr",{key:r.key||i},cols.map((c,j)=>h("td",{key:j},c.f(r,i)))))))));
+        h("thead",null,h("tr",null,cols.map((c,i)=>h("th",{key:i,style:{whiteSpace:"normal",lineHeight:1.25,verticalAlign:"bottom",overflowWrap:"anywhere"}},c.l)))),
+        h("tbody",null,linhas.map((r,i)=>h("tr",{key:r.key||i},cols.map((c,j)=>h("td",{key:j,style:{whiteSpace:"normal",overflowWrap:"anywhere",lineHeight:1.3,padding:"8px 10px"}},c.f(r,i)))))))));
   }
   let colsResumo=(nomeCol,nomeLarg)=>[
     {l:"#",w:"5%",f:(r,i)=>(i+1)+"º"},{l:nomeCol,w:nomeLarg||"17%",f:r=>r.nome},{l:"Ciclos",w:"7%",f:r=>r.ciclos},
