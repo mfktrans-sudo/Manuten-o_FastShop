@@ -2250,6 +2250,144 @@ function ManutencaoTab({data:e,setData:t,logAudit:n}){
   );
 }
 
+function DesempenhoVidaUtilBaterias({ciclos:todos,bts,ms,shs}){
+  let h=g.default.createElement;
+  let[fDe,setFDe]=(0,g.useState)("");
+  let[fAte,setFAte]=(0,g.useState)("");
+  let[fMod,setFMod]=(0,g.useState)("");
+  let[fBat,setFBat]=(0,g.useState)("");
+  let[fTurno,setFTurno]=(0,g.useState)("");
+  const MIN_CICLOS=10,MIN_BATS=3,MIN_BAT_CICLOS=3;
+  function fmtT(m){if(m==null||isNaN(m))return"—";let t=Math.round(m*60),hh=Math.floor(t/3600),mm=Math.floor((t%3600)/60),ss=t%60,p=function(n){return("0"+n).slice(-2)};return hh>0?hh+"h "+p(mm)+"min "+p(ss)+"s":(mm>0?mm+"min "+p(ss)+"s":ss+"s");}
+  function pct(v){return v==null||isNaN(v)?"—":(v>0?"+":"")+v.toFixed(1).replace(".",",")+"%";}
+  function media(a){return a.length?a.reduce((x,y)=>x+y,0)/a.length:0;}
+  function desvio(a){if(a.length<2)return 0;let m=media(a);return Math.sqrt(a.reduce((s,x)=>s+(x-m)*(x-m),0)/(a.length-1));}
+  function mediana(a){if(!a.length)return null;let s=a.slice().sort((x,y)=>x-y),m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;}
+  let bat=id=>bts.find(x=>x.id===id);
+  let numBat=id=>bat(id)?.numero||"—";
+  let modBat=id=>bat(id)?.modelo||"Sem modelo";
+  let nomeMaq=id=>ms.find(x=>x.id===id)?.code||"—";
+  let nomeTurno=id=>shs.find(x=>x.id===id)?.nome||"—";
+  /* Apenas ciclos completos (instalação + retirada registradas) */
+  let validos=(0,g.useMemo)(()=>todos.filter(c=>c.min!=null&&!c.perdido&&c.min>0&&c.fim).map(c=>({...c,modelo:modBat(c.bat)})),[todos,bts]);
+  /* Referência por modelo = histórico real completo do modelo (independe dos filtros) */
+  let refs=(0,g.useMemo)(()=>{
+    let m={};validos.forEach(c=>{(m[c.modelo]=m[c.modelo]||[]).push(c)});
+    let out={};
+    Object.keys(m).forEach(k=>{
+      let arr=m[k],v=arr.map(c=>c.min),nb=new Set(arr.map(c=>c.bat)).size,mu=media(v),sd=desvio(v);
+      let motivo=null;
+      if(arr.length<MIN_CICLOS)motivo="menos de "+MIN_CICLOS+" ciclos completos";
+      else if(nb<MIN_BATS)motivo="menos de "+MIN_BATS+" baterias com histórico";
+      else if(!(sd>0))motivo="sem variação no histórico";
+      out[k]={modelo:k,n:arr.length,nBat:nb,mu:mu,sd:sd,mediana:mediana(v),inf:mu-sd,sup:mu+sd,ok:!motivo,motivo:motivo};
+    });
+    return out;
+  },[validos]);
+  let modelos=Object.keys(refs).sort((a,b)=>a.localeCompare(b,"pt-BR",{numeric:true}));
+  let filtrados=validos.filter(c=>{
+    if(fDe&&c.ini<new Date(fDe+"T00:00:00"))return false;
+    if(fAte&&c.ini>new Date(fAte+"T23:59:59"))return false;
+    if(fMod&&c.modelo!==fMod)return false;
+    if(fBat&&c.bat!==fBat)return false;
+    if(fTurno&&c.swIns.shift_id!==fTurno)return false;
+    return true;
+  });
+  /* Avaliação por bateria */
+  let porBat=(function(){
+    let m={};filtrados.forEach(c=>{(m[c.bat]=m[c.bat]||[]).push(c)});
+    return Object.keys(m).map(id=>{
+      let arr=m[id].slice().sort((a,b)=>b.ini-a.ini),v=arr.map(c=>c.min),r=refs[arr[0].modelo],mean=media(v);
+      let o={id:id,numero:numBat(id),modelo:arr[0].modelo,n:arr.length,media:mean,menor:Math.min.apply(null,v),maior:Math.max.apply(null,v),ref:r,diff:null,z:null,abaixo:0,fora:0,recorrente:false,status:"insuf",motivo:null};
+      if(!r.ok){o.motivo="Histórico do modelo insuficiente ("+r.motivo+")";return o;}
+      o.diff=(mean-r.mu)/r.mu*100;
+      o.abaixo=v.filter(x=>x<r.inf).length;
+      o.fora=v.filter(x=>Math.abs(x-r.mu)>2*r.sd).length;
+      if(arr.length<MIN_BAT_CICLOS){o.motivo="Menos de "+MIN_BAT_CICLOS+" ciclos completos da bateria";return o;}
+      o.z=(mean-r.mu)/(r.sd/Math.sqrt(arr.length));
+      o.recorrente=arr.slice(0,3).every(c=>c.min<r.inf);
+      o.status=(o.z<=-2||(o.recorrente&&o.z<=-1))?"critico":(o.z<=-1||o.recorrente||v.some(x=>x<r.mu-2*r.sd))?"atencao":"normal";
+      return o;
+    });
+  })();
+  let ordem={critico:0,atencao:1,normal:2,insuf:3};
+  let avaliadas=porBat.filter(b=>b.status!=="insuf");
+  let pior=avaliadas.slice().sort((a,b)=>a.diff-b.diff)[0];
+  let cont=s=>porBat.filter(b=>b.status===s).length;
+  let alertas=porBat.filter(b=>b.status==="critico"||b.status==="atencao"||(b.status==="normal"&&b.fora>0)).sort((a,b)=>ordem[a.status]-ordem[b.status]||a.diff-b.diff);
+  const cor={critico:fe.bad,atencao:fe.warn,normal:fe.ok,insuf:fe.textDim};
+  const rot={critico:"Crítico",atencao:"Atenção",normal:"Normal",insuf:"Sem histórico suficiente"};
+  const badge=s=>h(Va,{color:cor[s]},rot[s]);
+  function tabela(titulo,dica,cols,linhas,vazio){
+    return h("div",{key:titulo},
+      h("h3",{className:"ranking-title"},titulo),dica&&h("p",{className:"hint"},dica),
+      linhas.length===0?h("p",{className:"muted"},vazio||"Sem dados para os filtros selecionados."):
+      h("div",{className:"table-wrap"},h("table",{style:{tableLayout:"fixed",width:"100%",minWidth:1300}},
+        h("colgroup",null,cols.map((c,i)=>h("col",{key:i,style:{width:c.w}}))),
+        h("thead",null,h("tr",null,cols.map((c,i)=>h("th",{key:i,style:{whiteSpace:"normal",lineHeight:1.25,verticalAlign:"bottom",overflowWrap:"anywhere"}},c.l)))),
+        h("tbody",null,linhas.map((r,i)=>h("tr",{key:r.key||i},cols.map((c,j)=>h("td",{key:j,style:{whiteSpace:"normal",overflowWrap:"anywhere",lineHeight:1.3,padding:"8px 10px"}},c.f(r,i)))))))));
+  }
+  /* Média por modelo × equipamento / turno */
+  function cruzado(keyFn,labelFn){
+    let m={};filtrados.forEach(c=>{let k=c.modelo+"||"+keyFn(c);(m[k]=m[k]||{modelo:c.modelo,k:keyFn(c),arr:[]}).arr.push(c)});
+    return Object.keys(m).map(k=>{let o=m[k],v=o.arr.map(c=>c.min),r=refs[o.modelo],mean=media(v);
+      return{key:k,modelo:o.modelo,nome:labelFn(o.k),n:v.length,nBat:new Set(o.arr.map(c=>c.bat)).size,media:mean,diff:r.ok&&v.length>=MIN_BAT_CICLOS?(mean-r.mu)/r.mu*100:null};
+    }).sort((a,b)=>a.modelo.localeCompare(b.modelo,"pt-BR",{numeric:true})||String(a.nome).localeCompare(String(b.nome),"pt-BR",{numeric:true}));
+  }
+  let porEquip=cruzado(c=>c.swIns.machine_id||"",nomeMaq);
+  let porTurno=cruzado(c=>c.swIns.shift_id||"",nomeTurno);
+  const colsCruz=nome=>[{l:"Modelo da bateria",w:"22%",f:r=>r.modelo},{l:nome,w:"20%",f:r=>r.nome},{l:"Ciclos completos",w:"10%",f:r=>r.n},{l:"Baterias",w:"10%",f:r=>r.nBat},
+    {l:"Tempo médio de operação",w:"16%",f:r=>fmtT(r.media)},{l:"Diferença vs média do modelo",w:"22%",f:r=>r.diff==null?"—":h("span",{style:{fontWeight:700,color:r.diff<=-10?fe.bad:r.diff<0?fe.warn:fe.ok}},pct(r.diff))}];
+  let diffChart=avaliadas.slice().sort((a,b)=>a.diff-b.diff).slice(0,10).map(b=>({nome:b.modelo+" "+b.numero,diff:Math.round(b.diff*10)/10}));
+  return h("div",{className:"painel-desempenho",style:{margin:"22px 0 8px",padding:"14px 16px",border:"1px solid var(--border)",borderRadius:12,background:"var(--panel-alt)"}},
+    h("h3",{className:"ranking-title",style:{marginTop:0}},"🔋 Desempenho e Vida Útil das Baterias"),
+    h("p",{className:"hint"},"Usa somente ciclos completos (instalação e retirada registradas) e compara cada bateria com o histórico real do seu modelo. Referência do modelo = média e desvio padrão de todos os ciclos completos do modelo, sem depender dos filtros abaixo. Status: Crítico = média da bateria estatisticamente ≥ 2 desvios abaixo da referência, ou queda recorrente (3 últimos ciclos abaixo da faixa normal) com média ≥ 1 desvio abaixo; Atenção = ≥ 1 desvio abaixo, queda recorrente ou ciclo muito fora do padrão; Normal = demais. Modelos com menos de "+MIN_CICLOS+" ciclos completos ou menos de "+MIN_BATS+" baterias, e baterias com menos de "+MIN_BAT_CICLOS+" ciclos, não recebem status."),
+    h("div",{className:"filter-bar"},
+      h(Zt,{label:"De"},h("input",{type:"date",value:fDe,onChange:ev=>setFDe(ev.target.value)})),
+      h(Zt,{label:"Até"},h("input",{type:"date",value:fAte,onChange:ev=>setFAte(ev.target.value)})),
+      h(Zt,{label:"Modelo"},h("select",{value:fMod,onChange:ev=>{setFMod(ev.target.value);setFBat("");}},h("option",{value:""},"Todos"),modelos.map(x=>h("option",{key:x,value:x},x)))),
+      h(Zt,{label:"Bateria"},h("select",{value:fBat,onChange:ev=>setFBat(ev.target.value)},h("option",{value:""},"Todas"),bts.filter(x=>!fMod||(x.modelo||"Sem modelo")===fMod).slice().sort((a,b)=>String(a.numero).localeCompare(String(b.numero),"pt-BR",{numeric:true})).map(x=>h("option",{key:x.id,value:x.id},x.numero)))),
+      h(Zt,{label:"Turno"},h("select",{value:fTurno,onChange:ev=>setFTurno(ev.target.value)},h("option",{value:""},"Todos"),shs.map(x=>h("option",{key:x.id,value:x.id},x.nome)))),
+      h("div",{className:"filter-actions"},h("button",{className:"btn btn-ghost",onClick:()=>{setFDe("");setFAte("");setFMod("");setFBat("");setFTurno("");}},"Limpar filtros"))),
+    validos.length===0?h("p",{className:"muted"},"Ainda não há ciclos completos registrados para análise."):h(g.default.Fragment,null,
+      h("div",{className:"stat-grid",style:{marginTop:14}},
+        h(ln,{label:"Ciclos completos analisados",value:filtrados.length,icon:h(ri,{size:18})}),
+        h(ln,{label:"Baterias analisadas",value:porBat.length,icon:h(ri,{size:18})}),
+        h(ln,{label:"Normal",value:cont("normal"),icon:h(ri,{size:18}),accent:fe.ok}),
+        h(ln,{label:"Atenção",value:cont("atencao"),icon:h(ri,{size:18}),accent:fe.warn}),
+        h(ln,{label:"Crítico",value:cont("critico"),icon:h(ri,{size:18}),accent:fe.bad}),
+        h(ln,{label:"Sem histórico suficiente",value:cont("insuf"),icon:h(ri,{size:18})})),
+      pior?h("div",{style:{margin:"14px 0",padding:"12px 14px",border:"2px solid "+cor[pior.status],borderRadius:10,background:"var(--panel)"}},
+        h("div",{style:{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}},h("strong",null,"⚠️ Pior desempenho: "+pior.modelo+" — bateria "+pior.numero),badge(pior.status)),
+        h("div",{className:"hint",style:{margin:"6px 0 0"}},"Tempo médio de operação: ",h("strong",null,fmtT(pior.media)),"  ·  Média do modelo: ",h("strong",null,fmtT(pior.ref.mu)),"  ·  Diferença: ",h("strong",{style:{color:pior.diff<0?fe.bad:fe.ok}},pct(pior.diff)),"  ·  Ocorrências abaixo do esperado: ",h("strong",null,pior.abaixo+" de "+pior.n+" ciclos")))
+        :h("p",{className:"hint",style:{margin:"14px 0"}},"Nenhuma bateria possui histórico suficiente para apontar o pior desempenho nos filtros atuais."),
+      h("h3",{className:"ranking-title"},"🚨 Alertas automáticos"),
+      alertas.length===0?h("p",{className:"muted"},"Nenhum alerta para os filtros selecionados."):
+      h("div",{style:{display:"flex",flexDirection:"column",gap:8,margin:"6px 0 14px"}},alertas.slice(0,30).map(b=>h("div",{key:b.id,style:{display:"flex",alignItems:"flex-start",gap:10,flexWrap:"wrap",padding:"8px 12px",border:"1px solid var(--border)",borderLeft:"4px solid "+cor[b.status],borderRadius:8,background:"var(--panel)"}},
+        badge(b.status),h("span",null,h("strong",null,b.modelo+" — bateria "+b.numero+": "),
+          "tempo médio "+fmtT(b.media)+" ("+pct(b.diff)+" vs média do modelo "+fmtT(b.ref.mu)+"); ",
+          b.abaixo+" ocorrência"+(b.abaixo===1?"":"s")+" abaixo do esperado em "+b.n+" ciclos",
+          b.recorrente?"; queda recorrente nos 3 últimos ciclos":"",
+          b.fora>0?"; "+b.fora+" ciclo"+(b.fora===1?"":"s")+" fora do padrão (> 2 desvios da média)":"",".")))),
+      diffChart.length>0&&h("div",{className:"charts-grid"},h("div",{className:"chart-card"},h("h4",null,"Diferença % do tempo médio vs média do modelo — 10 piores"),
+        h(Ia,{width:"100%",height:240},h(Os,{data:diffChart},h(za,{stroke:fe.border,strokeDasharray:"3 3"}),h(Ua,{dataKey:"nome",stroke:fe.textDim,fontSize:10,interval:0,angle:-20,textAnchor:"end",height:70}),h(Fa,{stroke:fe.textDim,fontSize:11}),
+          h(Na,{contentStyle:{background:fe.panelAlt,border:"1px solid "+fe.border},formatter:function(v){return[pct(v),"vs média do modelo"]}}),h($o,{dataKey:"diff",fill:fe.warn,radius:[4,4,0,0]}))))),
+      tabela("Desempenho por bateria","Ordenado do pior para o melhor desempenho. A diferença compara a média da bateria com a média histórica do seu modelo.",[
+        {l:"Status",w:"10%",f:r=>badge(r.status)},{l:"Modelo",w:"12%",f:r=>r.modelo},{l:"Bateria",w:"9%",f:r=>r.numero},{l:"Ciclos completos",w:"7%",f:r=>r.n},
+        {l:"Tempo médio de operação",w:"12%",f:r=>fmtT(r.media)},{l:"Média do modelo",w:"12%",f:r=>r.ref.ok?fmtT(r.ref.mu):"—"},
+        {l:"Diferença vs modelo",w:"9%",f:r=>r.diff==null?"—":h("span",{style:{fontWeight:700,color:r.diff<=-10?fe.bad:r.diff<0?fe.warn:fe.ok}},pct(r.diff))},
+        {l:"Ocorrências abaixo do esperado",w:"9%",f:r=>r.diff==null?"—":r.abaixo},{l:"Queda recorrente",w:"8%",f:r=>r.status==="insuf"?"—":(r.recorrente?"Sim":"Não")},
+        {l:"Observação",w:"12%",f:r=>r.motivo||(r.fora>0?r.fora+" ciclo(s) fora do padrão":"—")}].map(c=>c),
+        porBat.slice().sort((a,b)=>ordem[a.status]-ordem[b.status]||(a.diff==null?1e9:a.diff)-(b.diff==null?1e9:b.diff)).map(b=>({...b,key:b.id}))),
+      tabela("Parâmetros de referência por modelo","Calculados automaticamente com o histórico real de ciclos completos. A faixa normal vai de (média − 1 desvio) a (média + 1 desvio).",[
+        {l:"Modelo",w:"16%",f:r=>r.modelo},{l:"Ciclos completos",w:"9%",f:r=>r.n},{l:"Baterias",w:"8%",f:r=>r.nBat},
+        {l:"Média",w:"12%",f:r=>fmtT(r.mu)},{l:"Mediana",w:"12%",f:r=>fmtT(r.mediana)},{l:"Desvio padrão",w:"11%",f:r=>r.ok?fmtT(r.sd):"—"},
+        {l:"Faixa normal",w:"20%",f:r=>r.ok?fmtT(Math.max(0,r.inf))+" a "+fmtT(r.sup):"—"},{l:"Referência",w:"12%",f:r=>r.ok?h(Va,{color:fe.ok},"Disponível"):h(Va,{color:fe.textDim},"Insuficiente")}],
+        modelos.filter(m=>!fMod||m===fMod).map(m=>({...refs[m],key:m}))),
+      tabela("Média de operação por modelo e equipamento",null,colsCruz("Equipamento"),porEquip),
+      tabela("Média de operação por modelo e turno",null,colsCruz("Turno"),porTurno)));
+}
+
 function ConsumoBateriasTab({data:e}){
   let h=g.default.createElement;
   let ms=e.machines||[],ops=e.operators||[],shs=e.shifts||[],scs=e.sectors||[],bts=e.batteries||[];
@@ -2413,6 +2551,7 @@ function ConsumoBateriasTab({data:e}){
       h(ln,{label:"Maior tempo médio de uso",value:batMaior?batMaior.nome+" ("+fmtT(batMaior.medio)+")":"—",icon:h(qa,{size:18}),accent:fe.ok}),
       h(ln,{label:"Menor tempo médio de uso",value:batMenor?batMenor.nome+" ("+fmtT(batMenor.medio)+")":"—",icon:h(qa,{size:18}),accent:fe.bad}),
       semRet>0&&h(ln,{label:"Ciclos sem retirada registrada",value:semRet,icon:h(ri,{size:18}),accent:fe.bad})),
+    h(DesempenhoVidaUtilBaterias,{key:"desempenho-vida-util",ciclos:todosCiclos,bts:bts,ms:ms,shs:shs}),
     lista.length===0?h(Mj,{icon:h(hd,{size:32}),text:"Nenhum ciclo de bateria encontrado para os filtros selecionados."}):h(g.default.Fragment,null,
       h("div",{style:{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",margin:"4px 0 12px"}},h("strong",null,"Gráficos: Top "+TOPN),h("label",{style:{display:"flex",alignItems:"center",gap:6,cursor:"pointer"}},h("input",{type:"checkbox",checked:top5,onChange:ev=>setTop5Salvo(ev.target.checked),style:{cursor:"pointer",accentColor:"#0ea5e9"}}),"Mostrar apenas Top 5 (fica salvo)")),
       h("div",{className:"charts-grid"},
