@@ -2385,6 +2385,41 @@ function IndicadoresTrocasTab({data:e,setData:sxSetData,logAudit:sxLog}){
           grafico("Tempo m\u00e9dio de troca por m\u00e1quina (min) \u2014 "+titulo+" (top "+TOPN+")",pm.filter(r=>r.tempoMedio>0).sort((a,b)=>b.tempoMedio-a.tempoMedio).slice(0,TOPN),"maquina","tempoMedio",fe.warn,true,true)),
         tabelaRanking("Ranking por m\u00e1quina \u2014 "+titulo,null,pm,"M\u00e1quina","maquina")));
   }
+  let ciclosBat=(function(){
+    let todas=sw.filter(x=>!x.deleted&&x.start_datetime&&!isNaN(new Date(x.start_datetime))).slice().sort((a,b)=>new Date(a.start_datetime)-new Date(b.start_datetime));
+    let ids=new Set(lista.map(x=>x.id)),out=[];
+    todas.forEach((sx,i)=>{
+      if(!sx.installed_battery_id||!ids.has(sx.id))return;
+      let inst=new Date(sx.end_datetime||sx.start_datetime);
+      let prox=null;
+      for(let j=i+1;j<todas.length;j++){if(todas[j].removed_battery_id===sx.installed_battery_id&&new Date(todas[j].start_datetime)>=inst){prox=todas[j];break;}}
+      out.push({key:sx.id,bateria:numBat(sx.installed_battery_id),maquina:sx.machine_id,instalada:inst,retirada:prox?new Date(prox.start_datetime):null,minutos:prox?(new Date(prox.start_datetime)-inst)/60000:null,operador:sx.operator_id});
+    });
+    return out.sort((a,b)=>b.instalada-a.instalada);
+  })();
+  let ciclosFechados=ciclosBat.filter(c=>c.minutos!=null),ciclosAbertos=ciclosBat.length-ciclosFechados.length;
+  let minsCiclos=ciclosFechados.map(c=>c.minutos);
+  function blocoUsoBateria(){
+    return h("div",{key:"uso-bateria"},
+      h("h3",{className:"ranking-title"},"\u23f1\ufe0f Tempo de uso da bateria at\u00e9 a pr\u00f3xima troca"),
+      h("p",{className:"hint"},"Mede quanto tempo uma bateria ficou instalada na m\u00e1quina, desde a troca em que ela entrou at\u00e9 a troca seguinte em que ela foi retirada. Baterias ainda em uso (sem nova retirada) ficam fora da m\u00e9dia."),
+      h("div",{className:"stat-grid",style:{marginTop:10}},
+        h(ln,{label:"Tempo m\u00e9dio de uso",value:minsCiclos.length?fmtT(media(minsCiclos)):"\u2014",icon:h(md,{size:18})}),
+        h(ln,{label:"Menor tempo de uso",value:minsCiclos.length?fmtT(Math.min.apply(null,minsCiclos)):"\u2014",icon:h(md,{size:18}),accent:fe.bad}),
+        h(ln,{label:"Maior tempo de uso",value:minsCiclos.length?fmtT(Math.max.apply(null,minsCiclos)):"\u2014",icon:h(md,{size:18}),accent:fe.ok}),
+        h(ln,{label:"Ciclos medidos",value:ciclosFechados.length,icon:h(ri,{size:18})}),
+        h(ln,{label:"Baterias ainda em uso",value:ciclosAbertos,icon:h(ri,{size:18})})),
+      ciclosBat.length===0?h("p",{className:"muted"},"Sem dados no per\u00edodo."):
+      h("div",{className:"table-wrap"},h("table",{style:{tableLayout:"fixed",width:"100%"}},
+        h("colgroup",null,h("col",{style:{width:"5%"}}),h("col",{style:{width:"11%"}}),h("col",{style:{width:"16%"}}),h("col",{style:{width:"20%"}}),h("col",{style:{width:"16%"}}),h("col",{style:{width:"16%"}}),h("col",{style:{width:"16%"}})),
+        h("thead",null,h("tr",null,h("th",null,"#"),h("th",null,"Bateria"),h("th",null,"M\u00e1quina"),h("th",null,"Instalada em"),h("th",null,"Retirada em"),h("th",null,"Tempo de uso"),h("th",null,"Operador (instala\u00e7\u00e3o)"))),
+        h("tbody",null,ciclosBat.slice(0,100).map((c,i)=>h("tr",{key:c.key},
+          h("td",null,i+1,"\u00ba"),h("td",null,c.bateria),h("td",null,nomeMaq(c.maquina)),h("td",null,b2(c.instalada)),
+          h("td",null,c.retirada?b2(c.retirada):"\u2014"),
+          h("td",null,c.minutos!=null?fmtT(c.minutos):h(Va,{color:fe.warn},"Em uso")),
+          h("td",null,nomeOper(c.operador))))))),
+      ciclosBat.length>100&&h("p",{className:"hint"},"Exibindo os 100 ciclos mais recentes."));
+  }
   return h("div",{className:"section"},
     h("div",{className:"section-head"},h("h2",null,h(CbIcon3D,{name:"indicadores_trocas",size:30}),"Indicadores de Trocas de Bateria")),
     h("div",{className:"filter-bar"},
@@ -2427,6 +2462,7 @@ function IndicadoresTrocasTab({data:e,setData:sxSetData,logAudit:sxLog}){
       listaOutros.length>0&&painelTipo("Outros equipamentos (rebocadores e demais)",null,"\ud83d\ude9b"),
       tabelaRanking("Ranking por operador","Reflete a quantidade de trocas registradas por operador. N\u00e3o deve ser usado isoladamente como medida de produtividade \u2014 considere o contexto operacional (turno, setor, disponibilidade de baterias).",porOper,"Operador","operador"),
       tabelaRanking("Baterias mais retiradas (mais trocadas)",null,porBat.slice(0,15),"Bateria","bateria"),
+      blocoUsoBateria(),
       h("h3",{className:"ranking-title"},"\u00daltimas trocas",lista.length>100?" (100 mais recentes \u2014 use Exportar para a lista completa)":""),
       selIds.length>0&&h("div",{style:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",padding:"8px 12px",margin:"0 0 10px",background:"var(--panel-alt)",border:"1px solid var(--border)",borderRadius:8}},h("strong",null,selIds.length+(selIds.length===1?" troca selecionada":" trocas selecionadas")),h("button",{className:"btn btn-danger btn-sm",onClick:()=>excluirTrocas(selIds)},"Excluir selecionadas"),h("button",{className:"btn btn-ghost btn-sm",onClick:()=>setSelT([])},"Limpar sele\u00e7\u00e3o")),
       h("div",{className:"table-wrap"},h("table",null,
