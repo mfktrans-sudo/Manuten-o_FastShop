@@ -778,6 +778,9 @@ function btCicloCarga(b,s){
 }
 function btFmtRest(ms){var m=Math.max(0,Math.ceil(ms/6e4)),h=Math.floor(m/60);m=m%60;return h>0?h+"h"+(m<10?"0":"")+m+"min":m+"min"}
 function btFmtDataHora(t){return new Date(t).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}
+/* Carregamento manual: tempo restante (horas/minutos) informado ao colocar a bateria EM CARREGAMENTO pela edição.
+   Retorna null (campos vazios), NaN (valor inválido) ou o total em minutos. */
+function btCargaTempoMin(t){t=t||{};var h=String(t.h==null?"":t.h).trim(),m=String(t.m==null?"":t.m).trim();if(h===""&&m==="")return null;var hn=h===""?0:Number(h),mn=m===""?0:Number(m);if(!isFinite(hn)||!isFinite(mn)||hn<0||mn<0||Math.floor(hn)!==hn||Math.floor(mn)!==mn)return NaN;return hn*60+mn}
 var BT_ICON_LINK="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71";
 var BT_ICON_UNLINK="M18.84 12.25l1.72-1.71a5 5 0 0 0-7.07-7.07l-1.72 1.71M5.17 11.75l-1.71 1.71a5 5 0 0 0 7.07 7.07l1.71-1.71M8 2v3M2 8h3M16 19v3M19 16h3";
 function btNorm(v){return String(v==null?"":v).trim().toLowerCase()}
@@ -1275,6 +1278,17 @@ function BateriasTab({data:r,onChangeBatteries:onCh,onChangeMachines:onChM,logAu
         {key:"capacidade",label:"Capacidade"},
         {key:"data_aquisicao",label:"Data de aquisição",type:"date"},
         {key:"status",label:"Status",type:"select",required:!0,default:BT_STATUS_DISP,options:d0e.map(function(N){return{value:N,label:N}})},
+        {key:"_carga_tempo",label:"Tempo restante de carregamento (opcional — usado quando o status é EM CARREGAMENTO)",type:"custom",default:{h:"",m:""},render:function(val,setVal,form){
+          var v=val||{h:"",m:""};
+          if(!form||form.status!==BT_STATUS_CARGA)return bt_h("span",{className:"hint",style:{margin:0}},"Disponível ao escolher o status EM CARREGAMENTO.");
+          var cc=btCicloCarga(form,btSettings);
+          return bt_h("span",null,
+            bt_h("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}},
+              bt_h("input",{type:"number",min:0,step:1,placeholder:"Horas",style:{width:100},value:v.h,onChange:function(e){setVal({h:e.target.value,m:v.m})}}),
+              bt_h("span",null,"h"),
+              bt_h("input",{type:"number",min:0,step:1,placeholder:"Minutos",style:{width:100},value:v.m,onChange:function(e){setVal({h:v.h,m:e.target.value})}}),
+              bt_h("span",null,"min")),
+            bt_h("p",{className:"hint"},"Opcional. Informe quanto tempo ainda falta para a bateria ficar disponível: o sistema passa a mostrar a contagem regressiva e libera sozinho ao terminar. Em branco = fica EM CARREGAMENTO sem contagem, até você mudar o status manualmente."+(cc?" Hoje: faltam "+btFmtRest(cc.restante)+" (disponível em "+btFmtDataHora(cc.fim)+")."+" Preencher novamente substitui esse tempo.":"")))}},
         {key:"manut_problema",label:"Problema da manutenção (usado quando o status é EM MANUTENÇÃO)",type:"custom",default:"",render:function(val,setVal){return bt_h("span",null,bt_h("input",{list:"bt-problemas-lista",value:val||"",placeholder:"Digite ou escolha um problema cadastrado",onChange:function(e){setVal(e.target.value)}}),bt_h("datalist",{id:"bt-problemas-lista"},problemasLista.map(function(p){return bt_h("option",{key:p,value:p})})))}},
         {key:"modelos_compativeis",label:"Máquinas compatíveis (por modelo)",type:"custom",default:[],render:function(val,setVal){return bt_h(CompatModelosPicker,{machines:r.machines,value:val,onChange:setVal})}},
         {key:"observacoes",label:"Observações",type:"textarea"}],
@@ -1291,7 +1305,16 @@ function BateriasTab({data:r,onChangeBatteries:onCh,onChangeMachines:onChM,logAu
         if(!mod)return"Informe o modelo da bateria.";
         if(!nu)return"Informe a numeração da bateria (ex.: 1, 2, 3).";
         if(r.batteries.some(function(ce){return ce.id!==N.id&&btNorm(ce.modelo)===btNorm(mod)&&btNorm(btNumeracaoDe(ce))===btNorm(nu)}))return"Já existe uma bateria do modelo "+mod+" com a numeração "+nu+". A mesma numeração só pode se repetir em modelos diferentes.";
-        N.modelo=mod;N.numeracao=nu;N.numero=(mod+" "+nu).trim();return null}}),
+        N.modelo=mod;N.numeracao=nu;N.numero=(mod+" "+nu).trim();
+        var ctMin=btCargaTempoMin(N._carga_tempo);
+        if(N.status===BT_STATUS_CARGA){
+          if(ctMin!==null&&isNaN(ctMin))return"Tempo de carregamento inválido. Informe horas e minutos como números inteiros (ou deixe em branco).";
+          if(ctMin!==null&&ctMin<=0)return"Informe um tempo de carregamento maior que zero ou deixe os campos em branco.";
+          if(ctMin!==null){var cfgC=btCfgCarga(btSettings);N.carga_inicio=new Date(Date.now()+ctMin*6e4-(cfgC.descanso+cfgC.carga)*36e5).toISOString()}
+          else{var antesB=r.batteries.find(function(ce){return ce.id===N.id});if(!(antesB&&antesB.status===BT_STATUS_CARGA&&antesB.carga_inicio))N.carga_inicio=null}
+        }
+        delete N._carga_tempo;
+        return null}}),
     showBulk&&bt_h(BulkAddBateriasModal,{data:r,
       onSave:function(novos){onCh(function(prev){return btSincronizarCompat(prev,[...prev,...novos])});logA&&logA("Adicionar baterias em lote","battery",novos[0].id,null,{quantidade:novos.length,primeira:novos[0].numero,ultima:novos[novos.length-1].numero});setShowBulk(!1);setAviso(novos.length+(novos.length===1?" bateria cadastrada.":" baterias cadastradas."))},
       onClose:function(){setShowBulk(!1)}}),
