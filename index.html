@@ -261,7 +261,7 @@ td.col-actions { white-space:nowrap; }
   // ===== HORÍMETRO NA TROCA (fase de teste) =====
   // Só o login abaixo (e os administradores, para poderem testar) vê/preenche o horímetro,
   // e apenas nas máquinas marcadas com "Exigir horímetro na troca" na aba Máquinas.
-  const CB_HORIMETRO_EMAILS = ['ocupacao@fastshop.com.br'];
+  const CB_HORIMETRO_EMAILS = ['operacao@fastshop.com.br', 'ocupacao@fastshop.com.br'];
   window.cbHzPodeVer = function () {
     const e = String(window.__cbUserEmail || '').trim().toLowerCase();
     return CB_HORIMETRO_EMAILS.some(function (a) { return a.toLowerCase() === e; }) || window.__cbIsAdmin === true;
